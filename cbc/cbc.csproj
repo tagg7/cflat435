@@ -34,6 +34,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="QUT.ShiftReduceParser">
+      <HintPath>.\QUT.ShiftReduceParser.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Xml.Linq" />
@@ -45,18 +48,31 @@
   <ItemGroup>
     <Compile Include="CbLexer.cs" />
     <Compile Include="CbParser.cs" />
-    <Compile Include="CbRuntime.cs" />
-    <Compile Include="Program.cs" />
+    <Compile Include="cbc.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="sampleprog.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="CbRuntime.dll" />
+    <Content Include="sampleprog.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
+    <None Include="gppg.exe" />
+    <None Include="gplex.exe" />
+    <None Include="CbLexer.lex" />
     <None Include="CbParser.y" />
+    <None Include="CbRuntime.dll" />
+    <None Include="CbRuntime.cs" />
   </ItemGroup>
+  <PropertyGroup>
+    <!-- Force visual studio to use external compiler and avoid cached files -->
+    <UseHostCompilerIfAvailable>False</UseHostCompilerIfAvailable>
+  </PropertyGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PreBuildEvent>$(ProjectDir)gplex $(ProjectDir)CbLexer.lex
+$(ProjectDir)gppg /gplex $(ProjectDir)CbParser.y &gt; $(ProjectDir)CbParser.cs</PreBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

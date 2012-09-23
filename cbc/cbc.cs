@@ -5,7 +5,7 @@ using System.Text;
 
 namespace cbc
 {
-    class Program
+    class cbc
     {
         static void Main(string[] args)
         {
