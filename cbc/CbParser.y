@@ -1,7 +1,10 @@
-/* CbParser.y */
+%using System.IO;
 
-%namespace  FrontEnd
 %tokentype  Tokens
+
+// Token declarations
+%token '('
+%token ')'
 
 // All tokens which can be used as operators in expressions
 // they are ordered by precedence level (lowest first)
@@ -21,13 +24,17 @@
 %token Kwd_while Kwd_Length
 %token PLUSPLUS MINUSMINUS Ident Number StringConst
 
-%%
+// Start parsing at rule Program
+%start Program
 
-/* *************************************************************************
-   *                                                                       *
-   *         PRODUCTION RULES AND ASSOCIATED SEMANTIC ACTIONS              *
-   *                                                                       *
-   ************************************************************************* */
+%{
+  public void yyerror( string format, params Object[] args ) {
+    Console.Write("{0}: ", 99);//LineNumber);
+    Console.WriteLine(format, args);
+  }
+%}
+
+%%
 
 Program:	  UsingList Kwd_class Ident '{'  DeclList  '}'
 		;
@@ -153,6 +160,47 @@ Qualifiers:	  '.' Ident Qualifiers
 
 %%
 
+Stack<string> id_stack = new Stack<string>();
 
+void push_id() {
+	string t = ((LexScanner.Scanner)Scanner).last_token_text;
+	id_stack.Push(t);
+}
+string pop_id() {
+	return id_stack.Pop();
+}
 
+string token_text() {
+	return ((LexScanner.Scanner)Scanner).last_token_text;
+}
 
+void writeln() {
+	writeln(null,null);
+}
+void writeln(string opcode) {
+	writeln(opcode,null);
+}
+
+void writeln(string opcode, string value) {
+	if (opcode != null) {
+		System.Console.Write(opcode);
+		if (value != null) {
+			System.Console.Write(' '+value);
+		}
+	}
+	System.Console.Write('\n');
+}
+
+// The parser needs a constructor
+Parser() : base(null) { }
+
+static void Main(string[] args)
+{
+	Parser parser = new Parser();
+
+	FileStream file = new FileStream(args[0], FileMode.Open);
+	parser.Scanner = new LexScanner.Scanner(file);
+	System.Console.WriteLine("File: " + args[0]);
+
+	parser.Parse();
+}

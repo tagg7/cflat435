@@ -47,7 +47,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="CbLexer.cs" />
-    <Compile Include="CbParser.cs" />
     <Compile Include="cbc.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
@@ -57,8 +56,6 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <None Include="gppg.exe" />
-    <None Include="gplex.exe" />
     <None Include="CbLexer.lex" />
     <None Include="CbParser.y" />
     <None Include="CbRuntime.dll" />
@@ -71,7 +68,8 @@
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PreBuildEvent>$(ProjectDir)gplex $(ProjectDir)CbLexer.lex
-$(ProjectDir)gppg /gplex $(ProjectDir)CbParser.y &gt; $(ProjectDir)CbParser.cs</PreBuildEvent>
+move /Y CbLexer.cs ../..
+$(ProjectDir)gppg /gplex $(ProjectDir)CbParser.y &gt; $(ProjectDir)cbc.cs</PreBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
