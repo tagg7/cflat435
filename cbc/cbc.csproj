@@ -48,6 +48,9 @@
   <ItemGroup>
     <Compile Include="CbLexer.cs" />
     <Compile Include="cbc.cs" />
+    <Content Include="cbtest.cs">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

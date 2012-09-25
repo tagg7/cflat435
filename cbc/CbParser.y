@@ -2,10 +2,6 @@
 
 %tokentype  Tokens
 
-// Token declarations
-%token '('
-%token ')'
-
 // All tokens which can be used as operators in expressions
 // they are ordered by precedence level (lowest first)
 %right '='

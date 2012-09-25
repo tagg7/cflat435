@@ -29,8 +29,6 @@ newline \r?[\n]
 %%
 {space}          {}
 "=" {return (int)'=';}
-"("	{return (int)'(';}
-")"	{return (int)')';}
 (0|[1-9][0-9]*|0x[0-9a-fA-F]+)    {last_token_text=yytext;return (int)Tokens.Number;}
 [a-zA-Z][a-zA-Z0-9_]*            {last_token_text=yytext;return (int)Tokens.Ident;}
 {opchar}         {return (int)(yytext[0]);}
