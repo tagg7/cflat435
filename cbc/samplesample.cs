@@ -1,7 +1,5 @@
 // sampleprog.cs
 
-/* nested block comment test /*   */
-
 using CbRuntime;
 
 class P {
