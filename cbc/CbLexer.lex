@@ -28,7 +28,7 @@ number {digit}+
 
 ident {letter}[a-zA-Z0-9_]*
 printableChar [\x20-\x7e]
-stringConst "({printableChar}|\r|\n)*"
+stringConst \"({printableChar}|\r|\n)*\"
 
 operator (\+\+|--|\+|-|\*|\/|%|==|!=|\>=|\>|\<=|\<|&&|\|\||=|;|,|\.|\(|\)|\[|\]|\{|\}) 
  /* operator matches any of ++ -- + - * / % == != >= > <= < && || = ; , . ( ) [ ] { } */
