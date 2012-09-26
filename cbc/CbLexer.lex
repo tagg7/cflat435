@@ -85,7 +85,7 @@ while								{return (int)Tokens.Kwd_while;}
 {stringConst}						{return (int)Tokens.StringConst;}
 {ident}								{return (int)Tokens.Ident;}
 
-<<EOF>>								{if (!errors) Console.WriteLine("{0} lines from file {1} were parsed successfully", lineNum, filename); else Console.WriteLine("Error(s) encountered while parsing file {0}", filename);}
+<<EOF>>								{if (!errors) Console.WriteLine("{0} lines from file {1} were parsed successfully", lineNum, filename);}
 .									{yyerror("illegal character ('{0}')", yytext); errors = true;} 
 
 
