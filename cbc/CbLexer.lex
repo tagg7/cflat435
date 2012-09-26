@@ -3,6 +3,7 @@
 
 %{
   public int lineNum = 1;
+  public int commentDepth = 0;
 
   public int LineNumber { get{ return lineNum; } }
 
@@ -38,11 +39,19 @@ newline (\r\n?|\n)
 
 linecomment \/\/\.*{newline}?
 
+%x BLOCK_COMMENT
 
 %%
 
-using {return (int)Tokens.Kwd_using;}
-<<EOF>>			{Console.WriteLine("DONE!");}
+\/\*							{BEGIN(BLOCK_COMMENT);commentDepth++;}
+<BLOCK_COMMENT>\/\*				{commentDepth++;}
+ /* <BLOCK_COMMENT>\*\/				{commentDepth--; if(commentDepth == 0) BEGIN(INITIAL);} */
+<BLOCK_COMMENT>\*\/				{BEGIN(INITIAL);}
+
+{linecomment}					{}
+using							{return (int)Tokens.Kwd_using;}
+<<EOF>>							{Console.WriteLine("DONE!");}
+/* .							{yyerror("illegal character ({0})", yytext);} */
 
 
 %%
