@@ -22,19 +22,28 @@
 
 %}
 
-space [ \t]
-opchar [+\-*/%] // must escape '-' as it signifies a range
-newline \r?[\n]
+letter [a-zA-Z]
+digit [0-9]
+number {digit}+
+
+ident {letter}[a-zA-Z0-9_]*
+printableChar [\x20-\x7e]
+stringConst "({printableChar}|\r|\n)*"
+
+operator (\+\+|--|\+|-|\*|\/|%|==|!=|\>=|\>|\<=|\<|&&|\|\||=|;|,|\.|\(|\)|\[|\]|\{|\}) 
+ /* operator matches any of ++ -- + - * / % == != >= > <= < && || = ; , . ( ) [ ] { } */
+ 
+whitespace [ \t\r\n]+
+newline (\r\n?|\n)
+
+linecomment \/\/\.*{newline}?
+
 
 %%
-{space}          {}
-"=" {return (int)'=';}
-(0|[1-9][0-9]*|0x[0-9a-fA-F]+)    {last_token_text=yytext;return (int)Tokens.Number;}
-[a-zA-Z][a-zA-Z0-9_]*            {last_token_text=yytext;return (int)Tokens.Ident;}
-{opchar}         {return (int)(yytext[0]);}
-{newline}        {return (int)'\n';}
 
-.                { yyerror("illegal character ({0})", yytext); }
+using {return (int)Tokens.Kwd_using;}
+<<EOF>>			{Console.WriteLine("DONE!");}
+
 
 %%
 
