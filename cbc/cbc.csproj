@@ -54,6 +54,7 @@
     <Content Include="samplesample.cs">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Compile Include="CbParser.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -75,7 +76,7 @@
   <PropertyGroup>
     <PreBuildEvent>$(ProjectDir)gplex $(ProjectDir)CbLexer.lex
 move /Y CbLexer.cs ../..
-$(ProjectDir)gppg /gplex $(ProjectDir)CbParser.y &gt; $(ProjectDir)cbc.cs</PreBuildEvent>
+$(ProjectDir)gppg /gplex $(ProjectDir)CbParser.y &gt; $(ProjectDir)CbParser.cs</PreBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

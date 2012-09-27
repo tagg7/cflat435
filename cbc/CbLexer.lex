@@ -4,7 +4,7 @@
 %{
   public int lineNum = 1;
   public bool errors = false;
-  public string filename = "<INSERT FILE NAME HERE>";
+  public string filename = null;
 
   public int LineNumber { get{ return lineNum; } }
 
