@@ -72,8 +72,10 @@ namespace LexScanner
                     FileStream file = new FileStream(filename, FileMode.Open);
                     LexScanner.Scanner scanner = new LexScanner.Scanner(file);
                     scanner.filename = filename;
+                    scanner.tokens = outputTokens;
+                    if (outputTokens)
+                        scanner.openFile();
                     parser.Scanner = scanner;
-                    System.Console.WriteLine("File: " + filename);
 
                     parser.Parse();
                 }
