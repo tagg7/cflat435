@@ -11,7 +11,7 @@ class CbTest
         public int[] yes;
         public int[] no;
     }
-
+    
     public static void Main()
     {
         //--------- Prime Number test ---------
@@ -41,9 +41,15 @@ class CbTest
                 u = u - 1;
             }
             if (t == 0)
+            {
                 list.no[i] = a;
+                i++;
+            }
             else
+            {
                 list.yes[j] = a;
+                j++;
+            }
 
             cbio.read(out a);
         }
@@ -67,6 +73,21 @@ class CbTest
             cbio.write(list.no[t]);
             t++;
         }
+
+        // do something stupid
+        //   output the largest nonprime number * 2
+        //   or if no nonprimes exist output the smallest prime + 3
+        int x1;
+        x1 = 0;
+        if (t >= 1)
+        {
+            t--;
+            x1 = list.no[t] * 2;
+        }
+        else if (1 <= j)
+            x1 = list.yes[0] + 3;
+        cbio.write("\nStupid: " + x1 + "\n");
+        return;
 
         //--------- Greatest Common Denominator test ---------
         /*

@@ -5,9 +5,6 @@ namespace LexScanner
 {
     public class CbParser : Parser
     {
-        public static string filename;
-        public static bool outputTokens;
-        public static bool debugMode;
         Stack<string> id_stack = new Stack<string>();
 
         void push_id()
@@ -49,6 +46,10 @@ namespace LexScanner
 
         static void Main(string[] args)
         {
+            string filename = null;
+            bool outputTokens = false;
+            bool debugMode = false;
+            int files = 0;
             foreach (string arg in args) {
                 switch (arg)
                 {
@@ -60,7 +61,13 @@ namespace LexScanner
                         break;
                     default:
                         filename = arg;
+                        files++;
                         break;
+                }
+                if (files > 1)
+                {
+                    filename = null;
+                    break;
                 }
             }
             if (filename != null)
@@ -81,7 +88,7 @@ namespace LexScanner
                 }
                 catch (System.Exception e)
                 {
-                    System.Console.WriteLine("Error encountered while attempting to read " + filename);
+                    System.Console.WriteLine("Error encountered while attempting to read file " + filename);
                     if (debugMode)
                     {
                         System.Console.WriteLine(e);
