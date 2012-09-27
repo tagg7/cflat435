@@ -26,7 +26,7 @@
 
 number [0-9]+
 ident [a-zA-Z][a-zA-Z0-9_]*
-stringConst \"([\x20-\x7e]|\r|\n)*\"
+stringConst \"(\\[ !\x20-\x7e]|[ !\x23-\x5b\x5d-\x7e])*\"
 
 space [ \t]+
 newline (\r\n?|\n)

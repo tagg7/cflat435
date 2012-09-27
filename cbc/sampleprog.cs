@@ -14,6 +14,8 @@ class P {
 		Table val;
 		int x, i;
 
+		cbio.write("\\\"");
+
 		//---------- Initialize val ----------
 		val.pos = new int[size];
 		val.neg = new int[size];

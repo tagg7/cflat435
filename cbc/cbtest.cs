@@ -41,9 +41,9 @@ class CbTest
                 u = u - 1;
             }
             if (t == 0)
-                list.no[i++] = a;
+                list.no[i] = a;
             else
-                list.yes[j++] = a;
+                list.yes[j] = a;
 
             cbio.read(out a);
         }
