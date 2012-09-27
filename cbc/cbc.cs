@@ -52,7 +52,7 @@ namespace LexScanner
             foreach (string arg in args) {
                 switch (arg)
                 {
-                    case "-token":
+                    case "-tokens":
                         outputTokens = true;
                         break;
                     case "-debug":
@@ -90,7 +90,7 @@ namespace LexScanner
             {
                 System.Console.WriteLine("Usage: cbc [OPTION]... [FILE]");
                 System.Console.WriteLine("Compiles Cb file FILE.");
-                System.Console.WriteLine("  -token              output tokens to tokens.txt");
+                System.Console.WriteLine("  -tokens             output tokens to tokens.txt");
                 System.Console.WriteLine("  -debug              display debug messages");
             }
         }
