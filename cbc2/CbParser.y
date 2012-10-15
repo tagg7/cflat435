@@ -64,7 +64,7 @@
    ************************************************************************* */
 
 Program:	  UsingList Kwd_class Identifier '{'  DeclList  '}'
-			{ tree = AST.NonLeaf(NodeType.Class, LineNumber, $1, $3, $5); }
+			{ tree = AST.NonLeaf(NodeType.Program, LineNumber, $1, $3, $5); }
 		;
 
 UsingList:	  /* empty */
@@ -74,117 +74,180 @@ UsingList:	  /* empty */
 		;
 
 DeclList:	  DeclList ConstDecl
+			{ $1.AddChild($2); $$ = $1; }
 		| DeclList StructDecl
+			{ $1.AddChild($2); $$ = $1; }
 		| DeclList MethodDecl
+			{ $1.AddChild($2); $$ = $1; }
 		| /* empty */
+			{ $$ = AST.Kary(NodeType.DeclList, LineNumber); }			
 		;
 
-ConstDecl:	  Kwd_public Kwd_const Type Ident '=' InitVal ';'
+ConstDecl:	  Kwd_public Kwd_const Type Identifier '=' InitVal ';'
+			{ $$ = AST.NonLeaf(NodeType.Const, LineNumber, $3, $4, $6); }
 		;
 
 InitVal:	  Number
+			{ $$ = AST.Leaf(NodeType.IntConst, LineNumber, Convert.ToInt32(lexer.yytext)); }
 		| StringConst
+			{ $$ = AST.Leaf(NodeType.StringConst, LineNumber, lexer.yytext); }
 		;
 
-StructDecl:	  Kwd_public Kwd_struct Ident '{' FieldDeclList '}'
+StructDecl:	  Kwd_public Kwd_struct Identifier '{' FieldDeclList '}'
+			{ $$ = AST.NonLeaf(NodeType.Struct, LineNumber, $3, $5); }
 		;
 
 FieldDeclList:	  FieldDeclList FieldDecl
+			{ $1.AddChild($2); $$ = $1; }
 		| /* empty */
+			{ $$ = AST.Kary(NodeType.FieldList, LineNumber); }
 		;
 
 FieldDecl:	  Kwd_public Type IdentList ';'
+			{ $$ = AST.NonLeaf(NodeType.FieldDecl, LineNumber, $2, $3); }
 		;
 
-IdentList:	  IdentList ',' Ident
-		| Ident
+IdentList:	  IdentList ',' Identifier
+			{ $1.AddChild($3); $$ = $1; }
+		| Identifier
+			{ $$ = AST.Kary(NodeType.IdList, LineNumber); $$.AddChild($1); }
 		;
 
-MethodDecl:	  Kwd_public Kwd_static Kwd_void Ident '(' OptFormals ')' Block
-		| 	  Kwd_public Kwd_static Ident Ident '(' OptFormals ')' Block  // NEW!
+MethodDecl:	  Kwd_public Kwd_static Kwd_void Identifier '(' OptFormals ')' Block
+			{ $$ = AST.NonLeaf(NodeType.Method, LineNumber, null, $4, $6, $8); }
+		| 	  Kwd_public Kwd_static Identifier Identifier '(' OptFormals ')' Block  // NEW!
+			{ $$ = AST.NonLeaf(NodeType.Method, LineNumber, $3, $4, $6, $8); }
 		;
 
 OptFormals:	  /* empty */
+			{ $$ = AST.Kary(NodeType.Formals, LineNumber); }
 		| FormalPars
 		;
 
 FormalPars:	  FormalDecl
+			{ $$ = AST.Kary(NodeType.Formals, LineNumber); $$.AddChild($1); }
 		| FormalPars ',' FormalDecl
+			{ $1.AddChild($3); $$ = $1; }
 		;
 
-FormalDecl:	  Type Ident
+FormalDecl:	  Type Identifier
+			{ $$ = AST.NonLeaf(NodeType.Formal, LineNumber, $1, $2); }
 		;
 
-Type:		  Ident
-		| Ident '[' ']'
+Type:		  Identifier
+		| Identifier '[' ']'
+			{ $$ = $1; }
 		;
 
 Statement:	  Designator '=' Expr ';'
+			{ $$ = AST.NonLeaf(NodeType.Assign, LineNumber, $1, $3); }
 		| Designator '(' OptActuals ')' ';'  /* includes cbio.write(a); */
+			{ $$ = AST.NonLeaf(NodeType.Call, LineNumber, $1, $3); }
 		| Designator PLUSPLUS ';'
+			{ $$ = AST.NonLeaf(NodeType.PlusPlus, LineNumber, $1); }
 		| Designator MINUSMINUS ';'
+			{ $$ = AST.NonLeaf(NodeType.MinusMinus, LineNumber, $1); }
 		| Kwd_if '(' Expr ')' Statement OptElsePart
+			{ $$ = AST.NonLeaf(NodeType.If, LineNumber, $3, $5, $6); }
 		| Kwd_while '(' Expr ')' Statement
+			{ $$ = AST.NonLeaf(NodeType.While, LineNumber, $3, $5); }
 		| Kwd_break ';'
+			{ $$ = AST.Leaf(NodeType.Break, LineNumber); }
 		| Kwd_return ';'
+			{ $$ = AST.Kary(NodeType.Return, LineNumber); }
 		| Kwd_return Expr ';'
+			{ $$ = AST.Kary(NodeType.Return, LineNumber); $$.AddChild($2); }
 		| Designator '(' Kwd_out Designator ')' ';'  /* this is cbio.read(out v); */
+			{ $$ = AST.NonLeaf(NodeType.Read, LineNumber, $1, $4); }
 		|  Block
 		|  ';'
 		;
 
 OptActuals:	  /* empty */
+			{ $$ = AST.Leaf(NodeType.Empty, LineNumber); }
 		| ActPars
 		;
 
 ActPars:	  ActPars ',' Expr
+			{ $1.AddChild($3); $$ = $1; }
 		| Expr
+			{ $$ = AST.Kary(NodeType.Actuals, LineNumber); $$.AddChild($1); }
 		;
 
 OptElsePart:	  Kwd_else Statement
+			{ $$ = $2; }
 		| /* empty */    // an empty statement must be generated here
+			{ $$ = AST.Leaf(NodeType.Empty, LineNumber); }
 		;
 
 Block:		  '{' DeclsAndStmts '}'
+			{ $$ = $2; }
 		;
 
-LocalDecl:	  Ident IdentList ';'    // declare with a simple type
-		| Ident '[' ']' IdentList ';'  // declare with an array type
+LocalDecl:	  Identifier IdentList ';'    // declare with a simple type
+			{ $$ = AST.NonLeaf(NodeType.LocalDecl, LineNumber, $1, $2); }
+		| Identifier '[' ']' IdentList ';'  // declare with an array type
+			{ $$ = AST.NonLeaf(NodeType.LocalDecl, LineNumber, $1, $3); }
 		;
 
 DeclsAndStmts:	  /* empty */
+			{ $$ = AST.Kary(NodeType.Block, LineNumber); }
 		| DeclsAndStmts Statement
+			{ $1.AddChild($2); $$ = $1; }
 		| DeclsAndStmts LocalDecl
+			{ $1.AddChild($2); $$ = $1; }
 		;
 
 Expr:		  Expr OROR Expr
+			{ $$ = AST.NonLeaf(NodeType.Or, LineNumber, $1, $3); }
 		| Expr ANDAND Expr
+			{ $$ = AST.NonLeaf(NodeType.And, LineNumber, $1, $3); }
 		| Expr EQEQ Expr
+			{ $$ = AST.NonLeaf(NodeType.Equals, LineNumber, $1, $3); }
 		| Expr NOTEQ Expr
+			{ $$ = AST.NonLeaf(NodeType.NotEquals, LineNumber, $1, $3); }
 		| Expr LTEQ Expr
+			{ $$ = AST.NonLeaf(NodeType.LessOrEqual, LineNumber, $1, $3); }
 		| Expr '<' Expr
+			{ $$ = AST.NonLeaf(NodeType.LessThan, LineNumber, $1, $3); }
 		| Expr GTEQ Expr
+			{ $$ = AST.NonLeaf(NodeType.GreaterOrEqual, LineNumber, $1, $3); }
 		| Expr '>' Expr
+			{ $$ = AST.NonLeaf(NodeType.GreaterThan, LineNumber, $1, $3); }
 		| Expr '+' Expr
+			{ $$ = AST.NonLeaf(NodeType.Add, LineNumber, $1, $3); }
 		| Expr '-' Expr
+			{ $$ = AST.NonLeaf(NodeType.Sub, LineNumber, $1, $3); }
 		| Expr '*' Expr
+			{ $$ = AST.NonLeaf(NodeType.Mul, LineNumber, $1, $3); }
 		| Expr '/' Expr
+			{ $$ = AST.NonLeaf(NodeType.Div, LineNumber, $1, $3); }
 		| Expr '%' Expr
+			{ $$ = AST.NonLeaf(NodeType.Mod, LineNumber, $1, $3); }
 		| '-' Expr %prec UMINUS
+			{ $$ = AST.NonLeaf(NodeType.UnaryMinus, LineNumber, $2); }
 		| Designator
 		| Designator '(' OptActuals ')'
+			{ $$ = AST.NonLeaf(NodeType.Call, LineNumber, $1, $3); }
 		| Number
+			{ $$ = AST.Leaf(NodeType.IntConst, LineNumber, Convert.ToInt32(lexer.yytext)); }
 		| StringConst
-		| StringConst '.' Ident // Ident must be "Length"
-		| Kwd_new Ident
-		| Kwd_new Ident '[' Expr ']'
+			{ $$ = AST.Leaf(NodeType.StringConst, LineNumber, lexer.yytext); }
+		| StringConst '.' Identifier // Ident must be "Length"
+			{ $$ = AST.NonLeaf(NodeType.Block, LineNumber, $1, $3); }	// need to check
+		| Kwd_new Identifier
+			{ $$ = AST.NonLeaf(NodeType.NewStruct, LineNumber, $2); }	// need to check
+		| Kwd_new Identifier '[' Expr ']'
+			{ $$ = AST.NonLeaf(NodeType.NewArray, LineNumber, $2, $4); }	// need to check
 		| '(' Expr ')'
+			{ $$ = $2; }
 		;
 
-Designator:	  Ident Qualifiers
+Designator:	  Identifier Qualifiers
+			{ $$ = $1; }
 		;
 
-Qualifiers:	  '.' Ident Qualifiers
+Qualifiers:	  '.' Identifier Qualifiers
 		| '[' Expr ']' Qualifiers
 		| /* empty */
 		;
