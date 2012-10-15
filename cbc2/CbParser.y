@@ -89,8 +89,8 @@ ConstDecl:	  Kwd_public Kwd_const Type Identifier '=' InitVal ';'
 
 InitVal:	  Number
 			{ $$ = AST.Leaf(NodeType.IntConst, LineNumber, Convert.ToInt32(lexer.yytext)); }
-		| StringConst
-			{ $$ = AST.Leaf(NodeType.StringConst, LineNumber, lexer.yytext); }
+		| String
+			{ $$ = $1; }
 		;
 
 StructDecl:	  Kwd_public Kwd_struct Identifier '{' FieldDeclList '}'
@@ -135,8 +135,9 @@ FormalDecl:	  Type Identifier
 		;
 
 Type:		  Identifier
-		| Identifier '[' ']'
 			{ $$ = $1; }
+		| Identifier '[' ']'
+			{ $$ = AST.NonLeaf(NodeType.Array, LineNumber, $1); }
 		;
 
 Statement:	  Designator '=' Expr ';'
@@ -187,7 +188,7 @@ Block:		  '{' DeclsAndStmts '}'
 LocalDecl:	  Identifier IdentList ';'    // declare with a simple type
 			{ $$ = AST.NonLeaf(NodeType.LocalDecl, LineNumber, $1, $2); }
 		| Identifier '[' ']' IdentList ';'  // declare with an array type
-			{ $$ = AST.NonLeaf(NodeType.LocalDecl, LineNumber, $1, $3); }
+			{ $$ = AST.NonLeaf(NodeType.LocalDecl, LineNumber, AST.NonLeaf(NodeType.Array, LineNumber, $1), $3); }
 		;
 
 DeclsAndStmts:	  /* empty */
@@ -231,10 +232,10 @@ Expr:		  Expr OROR Expr
 			{ $$ = AST.NonLeaf(NodeType.Call, LineNumber, $1, $3); }
 		| Number
 			{ $$ = AST.Leaf(NodeType.IntConst, LineNumber, Convert.ToInt32(lexer.yytext)); }
-		| StringConst
-			{ $$ = AST.Leaf(NodeType.StringConst, LineNumber, lexer.yytext); }
-		| StringConst '.' Identifier // Ident must be "Length"
-			{ $$ = AST.NonLeaf(NodeType.Block, LineNumber, $1, $3); }	// need to check
+		| String
+			{ $$ = $1; }
+		| String '.' Identifier // Ident must be "Length"
+			{ $$ = AST.NonLeaf(NodeType.Dot, LineNumber, $1, $3); }	// need to check
 		| Kwd_new Identifier
 			{ $$ = AST.NonLeaf(NodeType.NewStruct, LineNumber, $2); }	// need to check
 		| Kwd_new Identifier '[' Expr ']'
@@ -244,16 +245,22 @@ Expr:		  Expr OROR Expr
 		;
 
 Designator:	  Identifier Qualifiers
-			{ $$ = $1; }
+			{ if ($1 == null) $$ = $1; else {AST root = $2; while(root[0] != null) root = root[0]; root[0] = $1; $$ = $2;} }
 		;
 
 Qualifiers:	  '.' Identifier Qualifiers
+			{ if ($3 == null) $$ = AST.NonLeaf(NodeType.Dot, LineNumber, null, $2); else {AST root = $3; while(root[0] != null) root = root[0]; root[0] = AST.NonLeaf(NodeType.Dot, LineNumber, null, $2); $$ = $3} }
 		| '[' Expr ']' Qualifiers
+			{ if ($4 == null) $$ = AST.NonLeaf(NodeType.Index, LineNumber, null, $2); else {AST root = $4; while(root[0] != null) root = root[0]; root[0] = AST.NonLeaf(NodeType.Index, LineNumber, null, $2); $$ = $4} }
 		| /* empty */
+			{ $$ = null; }
 		;
 
 Identifier:	  Ident  { $$ = AST.Leaf(NodeType.Ident, LineNumber, lexer.yytext); }
 		;
+
+String:       StringConst { $$ = AST.Leaf(NodeType.StringConst, LineNumber, lexer.yytext); }
+    ;
 %%
 
 
