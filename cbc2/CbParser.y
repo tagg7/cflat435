@@ -245,13 +245,13 @@ Expr:		  Expr OROR Expr
 		;
 
 Designator:	  Identifier Qualifiers
-			{ if ($1 == null) $$ = $1; else {AST root = $2; while(root[0] != null) root = root[0]; root[0] = $1; $$ = $2;} }
+			{ if ($2 == null) $$ = $1; else {AST root = $2; while(root[0] != null) root = root[0]; root[0] = $1; $$ = $2;} }
 		;
 
 Qualifiers:	  '.' Identifier Qualifiers
-			{ if ($3 == null) $$ = AST.NonLeaf(NodeType.Dot, LineNumber, null, $2); else {AST root = $3; while(root[0] != null) root = root[0]; root[0] = AST.NonLeaf(NodeType.Dot, LineNumber, null, $2); $$ = $3} }
+			{ if ($3 == null) $$ = AST.NonLeaf(NodeType.Dot, LineNumber, null, $2); else {AST root = $3; while(root[0] != null) root = root[0]; root[0] = AST.NonLeaf(NodeType.Dot, LineNumber, null, $2); $$ = $3;} }
 		| '[' Expr ']' Qualifiers
-			{ if ($4 == null) $$ = AST.NonLeaf(NodeType.Index, LineNumber, null, $2); else {AST root = $4; while(root[0] != null) root = root[0]; root[0] = AST.NonLeaf(NodeType.Index, LineNumber, null, $2); $$ = $4} }
+			{ if ($4 == null) $$ = AST.NonLeaf(NodeType.Index, LineNumber, null, $2); else {AST root = $4; while(root[0] != null) root = root[0]; root[0] = AST.NonLeaf(NodeType.Index, LineNumber, null, $2); $$ = $4;} }
 		| /* empty */
 			{ $$ = null; }
 		;
