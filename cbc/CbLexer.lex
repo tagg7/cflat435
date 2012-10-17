@@ -3,6 +3,7 @@
 
 %{
   public int lineNum = 1;
+  public int commentDepth = 0;
   public bool errors = false;
   public bool tokens = false;
   public string filename = null;
@@ -43,9 +44,11 @@ linecomment "//".*
 
 %%
 
-"/*"								{BEGIN(BLOCK_COMMENT);}
-<BLOCK_COMMENT>"*/"					{BEGIN(INITIAL);}
+"/*"								{BEGIN(BLOCK_COMMENT);commentDepth++;}
 <BLOCK_COMMENT, INITIAL>{newline}	{lineNum++;}
+<BLOCK_COMMENT>"/*"					{commentDepth++;}
+<BLOCK_COMMENT>"*/"					{commentDepth--; if(commentDepth == 0) BEGIN(INITIAL);}
+
 {linecomment}						{}
 {space}								{}
 "+"									{if(tokens) printTokenChar("+"); return (int)'+';}
