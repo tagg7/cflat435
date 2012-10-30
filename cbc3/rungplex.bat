@@ -1,0 +1,2 @@
+gplex CbLexer.lex
+pause
