@@ -342,15 +342,44 @@ public class TcVisitor: Visitor {
         for( int i = 0; i < arity; i++ ) {
             AST ch = decls[i];
             string name = ((AST_leaf)(ch[1])).Sval;
+            CbType typ;
+            int argsize;
 
             switch(ch.Tag) {
             case NodeType.Struct:
                 // FIX ME!
                 // Add the fields to the CbStruct instance in the Structs table
+                CbStruct str;
+                name = ((AST_leaf)(ch[0])).Sval;
+
+                // find existing struct
+                Structs.TryGetValue(name, out str);     // do error checking
+
+                AST fldlst = ch[1];
+                AST fld;
+                AST idlst;
+                
+                argsize = fldlst.NumChildren;
+                int idsize;
+                // iterate through the field list
+                for (int j = 0; j < argsize; j++)
+                {
+                    // get field declaration
+                    fld = fldlst[j];
+                    // find declaration type
+                    typ = lookUpType(fld[0]);
+                    // get list of variables declared
+                    idlst = fld[1];
+                    idsize = idlst.NumChildren;
+                    // add all declared variables to the struct
+                    for(int k = 0; k < idsize; k++)
+                        str.AddField(((AST_leaf)(idlst[k])).Sval, typ);
+                }
+
                 break;
             case NodeType.Const:
                 // Add the name and type of this constant to the Consts table
-                CbType typ = lookUpType(ch[0]);
+                typ = lookUpType(ch[0]);
                 if (Consts.ContainsKey(name))
                     ReportError(ch[0].LineNumber, "Duplicate declaration of const {0}", name);
                 else
@@ -363,7 +392,7 @@ public class TcVisitor: Visitor {
 
                 // add argument list (full signature) to CbMethod
                 AST args = ch[3];
-                int argsize = args.NumChildren;
+                argsize = args.NumChildren;
                 for(int j = 0; j < argsize; j++)
                     method.ArgType.Add(args[j].Type);
 
