@@ -63,7 +63,7 @@ public class TcVisitor: Visitor {
 	}
 
     // check if child nodes are equal to "tleaf" value, then set the node type equal to "tnode"
-    private int intExprCheck( AST_nonleaf node, CbType tleaf, CbType tnode) {
+    private int basicTypeCheck( AST_nonleaf node, CbType tleaf, CbType tnode) {
         int children = node.NumChildren;
 
         node[0].Accept(this);
@@ -178,10 +178,8 @@ public class TcVisitor: Visitor {
         case NodeType.Call:
             break;
         case NodeType.PlusPlus:
-            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.MinusMinus:
-            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.If:
             node[0].Accept(this);
@@ -205,46 +203,46 @@ public class TcVisitor: Visitor {
         case NodeType.Read:
             break;
         case NodeType.Add:
-            intExprCheck(node, CbType.Int, CbType.Int);
+            basicTypeCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Sub:
-            intExprCheck(node, CbType.Int, CbType.Int);
+            basicTypeCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Mul:
-            intExprCheck(node, CbType.Int, CbType.Int);
+            basicTypeCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Div:
-            intExprCheck(node, CbType.Int, CbType.Int);
+            basicTypeCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Mod:
-            intExprCheck(node, CbType.Int, CbType.Int);
+            basicTypeCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.And:
-            intExprCheck(node, CbType.Bool, CbType.Bool);
+            basicTypeCheck(node, CbType.Bool, CbType.Bool);
             break;
         case NodeType.Or:
-            intExprCheck(node, CbType.Bool, CbType.Bool);
+            basicTypeCheck(node, CbType.Bool, CbType.Bool);
             break;
         case NodeType.Equals:
-            intExprCheck(node, CbType.Int, CbType.Bool);
+            basicTypeCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.NotEquals:
-            intExprCheck(node, CbType.Int, CbType.Bool);
+            basicTypeCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.LessThan:
-            intExprCheck(node, CbType.Int, CbType.Bool);
+            basicTypeCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.GreaterThan:
-            intExprCheck(node, CbType.Int, CbType.Bool);
+            basicTypeCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.LessOrEqual:
-            intExprCheck(node, CbType.Int, CbType.Bool);
+            basicTypeCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.GreaterOrEqual:
-            intExprCheck(node, CbType.Int, CbType.Bool);
+            basicTypeCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.UnaryMinus:
-            intExprCheck(node, CbType.Int, CbType.Int);
+            basicTypeCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Dot:
             break;
