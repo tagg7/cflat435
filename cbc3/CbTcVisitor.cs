@@ -249,6 +249,7 @@ public class TcVisitor: Visitor {
         case NodeType.Empty:
             break;
         case NodeType.Break:
+            // Nothing to do
             break;
         case NodeType.IntConst:
             node.Type = CbType.Int;
@@ -257,6 +258,19 @@ public class TcVisitor: Visitor {
             node.Type = CbType.String;
             break;
         case NodeType.Ident:
+            // check symbol table and constant dictionary for identifer
+            if (localSymbols.Lookup(node.Sval) == null && Consts.ContainsKey(node.Sval) == false)
+            {
+                ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
+                // add undeclared variable to the symbol table to prevent additional errors
+                localSymbols.Binding(node.Sval, node.LineNumber);
+                node.Type = CbType.Error;
+            }
+            else
+            {
+                node.Type = CbType.String;
+            }
+
             break;
         default:
             throw new Exception("{0} is not a tag compatible with an AST_leaf node");
