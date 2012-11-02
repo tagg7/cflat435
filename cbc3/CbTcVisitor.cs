@@ -4,7 +4,7 @@
     
     Authors: Stephen Bates and Mike Lyttle
     
-    Date: Oct 2012
+    Date: Nov 2012
 */
 
 using System;
@@ -151,24 +151,21 @@ public class TcVisitor: Visitor {
             node[2].Accept(this);
             break;
         case NodeType.Const:
-            // FIX ME!
-            // Must type check the expression used to initialize the constant and verify
-            // that its type matches the declared type for this constant
-
             node[0].Accept(this);
             // are these checks necessary?
             node[1].Accept(this);
             node[2].Accept(this);
 
             CbType typ = CbType.Error;
+            CbType typc = lookUpType(node[0]);
 
             // check that type matches declared type in constants dictionary
-            if (node[0].Type != CbType.Int && node[0].Type == CbType.String)
+            if (typc != CbType.Int && typc == CbType.String)
                 ReportError(node[0].LineNumber, "Invalid constant type declaration");
             else
                 Consts.TryGetValue(((AST_leaf)(node[1])).Sval, out typ);
 
-            if(node[0].Type != typ)
+            if(typc != typ)
                 ReportError(node[0].LineNumber, "Mismatched constant type declaration");
             
             break;
@@ -344,6 +341,8 @@ public class TcVisitor: Visitor {
         // 3. fill in the field details for each struct in the Structs table
         for( int i = 0; i < arity; i++ ) {
             AST ch = decls[i];
+            string name = ((AST_leaf)(ch[1])).Sval;
+
             switch(ch.Tag) {
             case NodeType.Struct:
                 // FIX ME!
@@ -352,15 +351,24 @@ public class TcVisitor: Visitor {
             case NodeType.Const:
                 // Add the name and type of this constant to the Consts table
                 CbType typ = lookUpType(ch[0]);
-                string name = ((AST_leaf)(ch[1])).Sval;
                 if (Consts.ContainsKey(name))
                     ReportError(ch[0].LineNumber, "Duplicate declaration of const {0}", name);
                 else
                     Consts.Add(name, typ);
                 break;
             case NodeType.Method:
-                // FIX ME!
-                // Add the name and full signature of this method to the Methods table
+                // create new CbMethod
+                CbType typm = ch[0].Type; // NOTE: FIX ME! Needs to set proper method type
+                CbMethod method = new CbMethod(name, typm);
+
+                // add argument list (full signature) to CbMethod
+                AST args = ch[3];
+                int argsize = args.NumChildren;
+                for(int j = 0; j < argsize; j++)
+                    method.ArgType.Add(args[j].Type);
+
+                Methods.Add(name, method);
+
                 break;
             default:
                 throw new Exception("Unexpected node type " + ch.Tag);
