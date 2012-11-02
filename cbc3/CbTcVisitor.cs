@@ -62,15 +62,15 @@ public class TcVisitor: Visitor {
 	    NumWarnings++;
 	}
 
-    // check if the child nodes are integers
-    private int intExprCheck( AST_nonleaf node ) {
+    // check if child nodes are equal to "tleaf" value, then set the node type equal to "tnode"
+    private int intExprCheck( AST_nonleaf node, CbType tleaf, CbType tnode) {
         int children = node.NumChildren;
 
         node[0].Accept(this);
 
         if (children == 1)
         {
-            if (node[0].Type != CbType.Int)
+            if (node[0].Type != tleaf)
             {
                 ReportError(node[0].LineNumber, "Cannot perform {0} operation on types {1} and {2}", node.Tag, node[0].Type, node[1].Type);
                 return 1;
@@ -80,14 +80,14 @@ public class TcVisitor: Visitor {
         {
             node[1].Accept(this);
 
-            if (node[0].Type != CbType.Int && node[1].Type != CbType.Int)
+            if (node[0].Type != tleaf && node[1].Type != tleaf)
             {
                 ReportError(node[0].LineNumber, "Cannot perform {0} operation on type {1}", node.Tag, node[0].Type);
                 return 1;
             }
         }
         
-        node.Type = CbType.Int;
+        node.Type = tnode;
 
         return 0;
     }
@@ -178,58 +178,73 @@ public class TcVisitor: Visitor {
         case NodeType.Call:
             break;
         case NodeType.PlusPlus:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.MinusMinus:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.If:
+            node[0].Accept(this);
+            node[1].Accept(this);
+            node[2].Accept(this);
+
+            if(node[0].Type != CbType.Bool)
+                ReportError(node[0].LineNumber, "Invalid boolean expression");
+
+            // type declaration?
+
             break;
         case NodeType.While:
+            node[0].Accept(this);
+            node[1].Accept(this);
+
+            if (node[0].Type != CbType.Bool)
+                ReportError(node[0].LineNumber, "Invalid boolean expression");
+            
             break;
         case NodeType.Read:
             break;
         case NodeType.Add:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Sub:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Mul:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Div:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Mod:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.And:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Bool, CbType.Bool);
             break;
         case NodeType.Or:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Bool, CbType.Bool);
             break;
         case NodeType.Equals:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.NotEquals:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.LessThan:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.GreaterThan:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.LessOrEqual:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.GreaterOrEqual:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Bool);
             break;
         case NodeType.UnaryMinus:
-            intExprCheck(node);
+            intExprCheck(node, CbType.Int, CbType.Int);
             break;
         case NodeType.Dot:
             break;
@@ -247,9 +262,11 @@ public class TcVisitor: Visitor {
 	public override void Visit(AST_leaf node) {
         switch(node.Tag) {
         case NodeType.Empty:
+            node.Type = CbType.Void;
             break;
         case NodeType.Break:
-            // Nothing to do
+            // need to declare as void?
+            node.Type = CbType.Void;
             break;
         case NodeType.IntConst:
             node.Type = CbType.Int;
