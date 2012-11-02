@@ -128,6 +128,8 @@ public class TcVisitor: Visitor {
             break;
         case NodeType.Block:
             node[0].Accept(this);
+
+            // declare node type?
             break;
         case NodeType.Actuals:
             break;
@@ -152,6 +154,23 @@ public class TcVisitor: Visitor {
             // FIX ME!
             // Must type check the expression used to initialize the constant and verify
             // that its type matches the declared type for this constant
+
+            node[0].Accept(this);
+            // are these checks necessary?
+            node[1].Accept(this);
+            node[2].Accept(this);
+
+            CbType typ = CbType.Error;
+
+            // check that type matches declared type in constants dictionary
+            if (node[0].Type != CbType.Int && node[0].Type == CbType.String)
+                ReportError(node[0].LineNumber, "Invalid constant type declaration");
+            else
+                Consts.TryGetValue(((AST_leaf)(node[1])).Sval, out typ);
+
+            if(node[0].Type != typ)
+                ReportError(node[0].LineNumber, "Mismatched constant type declaration");
+            
             break;
         case NodeType.Struct:
             // Nothing to do ... this has been handled by the prePass method below
@@ -182,8 +201,11 @@ public class TcVisitor: Visitor {
         case NodeType.MinusMinus:
             break;
         case NodeType.If:
+            // check boolean parameter
             node[0].Accept(this);
+            // now check the do statement
             node[1].Accept(this);
+            // now check for the else statement
             node[2].Accept(this);
 
             if(node[0].Type != CbType.Bool)
@@ -193,12 +215,16 @@ public class TcVisitor: Visitor {
 
             break;
         case NodeType.While:
+            // check boolean parameter
             node[0].Accept(this);
+            // now check the do statement
             node[1].Accept(this);
 
             if (node[0].Type != CbType.Bool)
                 ReportError(node[0].LineNumber, "Invalid boolean expression");
-            
+
+            // type declaration?           
+
             break;
         case NodeType.Read:
             break;
