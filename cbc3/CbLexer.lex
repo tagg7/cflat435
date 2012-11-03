@@ -89,6 +89,7 @@ schar           ([0-9a-zA-Z ~!@#$%^&*()_\-+={[}\]|:;'<,>\.?/]|\\[rnt\\"])
 /* handle multi-line nested block comments */
 <COMMENT>"*/"               { if (--commentNesting <= 0) { BEGIN(INITIAL); }  }
 <COMMENT>"/*"               { commentNesting++; }
+<COMMENT>\r\n|[\r\n]		{ lineNum++; }
 <COMMENT>.                  {  }
 
 %%
