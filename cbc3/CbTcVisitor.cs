@@ -78,7 +78,10 @@ public class TcVisitor: Visitor {
                 return;
             }
         }
-        node.Type = tnode;
+
+        if(tnode != null)
+            node.Type = tnode;
+
         return;
     }
 
@@ -250,13 +253,16 @@ public class TcVisitor: Visitor {
                 break;
             case NodeType.Call:
                 // semantic check for cbio.write here
-                // TODO
+                
+
                 break;
             case NodeType.PlusPlus:
-                //node[0].Accept(this);
+                basicTypeCheck(node, CbType.Int, null);
+                // no type declaration
                 break;
             case NodeType.MinusMinus:
-                //node[0].Accept(this);
+                basicTypeCheck(node, CbType.Int, null);
+                // no type declaration
                 break;
             case NodeType.If:
                 // check boolean parameter
@@ -286,11 +292,14 @@ public class TcVisitor: Visitor {
             case NodeType.Read:
                 // TODO : check if this is right
                 // The two children should be the method 'cbio.read' and the variable v
+                node[0].Accept(this);
                 node[1].Accept(this);
+
                 if (((AST_leaf)node[0]).Sval != "cbio.read")
                     ReportError(node[0].LineNumber, "Invalid call to method using keyword out");
                 else if (node[1].Type != CbType.Int)
                     ReportError(node[0].LineNumber, "Invalid call to method cbio.read(out int val)");
+
                 break;
             case NodeType.Add:
                 basicTypeCheck(node, CbType.Int, CbType.Int);
@@ -314,22 +323,22 @@ public class TcVisitor: Visitor {
                 basicTypeCheck(node, CbType.Bool, CbType.Bool);
                 break;
             case NodeType.Equals:
-                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                basicTypeCheck(node, CbType.Int, CbType.Bool);
                 break;
             case NodeType.NotEquals:
-                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                basicTypeCheck(node, CbType.Int, CbType.Bool);
                 break;
             case NodeType.LessThan:
-                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                basicTypeCheck(node, CbType.Int, CbType.Bool);
                 break;
             case NodeType.GreaterThan:
-                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                basicTypeCheck(node, CbType.Int, CbType.Bool);
                 break;
             case NodeType.LessOrEqual:
-                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                basicTypeCheck(node, CbType.Int, CbType.Bool);
                 break;
             case NodeType.GreaterOrEqual:
-                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                basicTypeCheck(node, CbType.Int, CbType.Bool);
                 break;
             case NodeType.UnaryMinus:
                 basicTypeCheck(node, CbType.Int, CbType.Int);
@@ -412,6 +421,7 @@ public class TcVisitor: Visitor {
         switch(node.Tag) {
             case NodeType.Empty:
                 // no type
+                // node.Type = CbType.Void;
                 break;
             case NodeType.Break:
                 // no type
