@@ -252,8 +252,16 @@ public class TcVisitor: Visitor {
                 node.Type = node[0].Type;
                 break;
             case NodeType.Call:
-                // semantic check for cbio.write here
-                
+                // check calling method name
+                node[0].Accept(this);
+                // check parameters
+                node[1].Accept(this);
+
+                // semantic check for cbio.write
+                if (((AST_leaf)node[0]).Sval == "cbio.write" && (node[1].Type == CbType.Int || node[1].Type == CbType.String))
+                {
+                    ReportError(node[0].LineNumber, "Invalid input type {0} for cbio.write", node[1].Type);
+                }
 
                 break;
             case NodeType.PlusPlus:
@@ -350,7 +358,7 @@ public class TcVisitor: Visitor {
                 node[1].Accept(this);
 
                 // semantic check for string.Length
-                if (((AST_leaf)node[1]).Sval != "length")
+                if (node[0].Type == CbType.String && ((AST_leaf)node[1]).Sval != "Length")
                     ReportError(node[0].LineNumber, "Invalid string length usage");
 
                 // TODO : check that right hand side is valid in the current context (cbio.read, cbio.write, specific structs?)
