@@ -244,7 +244,7 @@ public class TcVisitor: Visitor {
 
                 // check that right and left hand sides have the same type
                 if (node[0].Type != node[1].Type && node[0].Type != CbType.Error && node[1].Type != CbType.Error)
-                    ReportError(node[0].LineNumber, "Cannot convert from type {1} to {0}", node[1].Type, node[0].Type);
+                    ReportError(node[0].LineNumber, "Cannot convert from type {1} to {0}", node[0].Type, node[1].Type);
 
                 node.Type = node[0].Type;
                 break;
@@ -342,10 +342,42 @@ public class TcVisitor: Visitor {
                 // TODO
                 break;
             case NodeType.NewArray:
-                // TODO
+                // read in array type
+                node[0].Accept(this);
+                // read in array size
+                node[1].Accept(this);
+
+                // check for valid array size
+                if (((AST_leaf)node[0]).Ival < 1)
+                    ReportError(node[0].LineNumber, "Array size cannot be negative");
+
+                // declare node type
+                if (((AST_leaf)node[0]).Sval == "string") 
+                    node.Type = CbType.Array(CbType.String);
+                else if (((AST_leaf)node[0]).Sval == "int")
+                    node.Type = CbType.Array(CbType.Int);
+                else
+                {
+                    ReportError(node[0].LineNumber, "Invalid array type {0}", ((AST_leaf)node[0]).Sval);
+                    node.Type = CbType.Array(CbType.Error);     // is this the correct type for an error?
+                }
+
                 break;
             case NodeType.Index:
-                // TODO
+                // read in index
+                node[1].Accept(this);
+
+                if (node[1].Type == CbType.Int)
+                {
+                    if (((AST_leaf)node[1]).Ival < 0)
+                        ReportError(node[0].LineNumber, "Index reference cannot be negative");
+                }
+                else
+                {
+                    ReportError(node[0].LineNumber, "Invalid index type {0}", node[1].Type);
+                }
+
+                node.Type = CbType.Void; // is this the correct type?
                 break;
             default:
                 throw new Exception("{0} is not a tag compatible with an AST_nonleaf node");
@@ -422,8 +454,6 @@ public class TcVisitor: Visitor {
 
             switch(ch.Tag) {
                 case NodeType.Struct:
-                    // FIX ME!
-                    // Add the fields to the CbStruct instance in the Structs table
                     CbStruct str;
                     name = ((AST_leaf)(ch[0])).Sval;
 
