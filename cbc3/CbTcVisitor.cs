@@ -160,12 +160,13 @@ public class TcVisitor: Visitor {
                 localSymbols.Exit();
                 break;
             case NodeType.Actuals:
-                // TODO ? or will be handled by NodeType.Call ?
-                //children = node.NumChildren;
-                //for (int i = 0; i < children; i++)
-                //{
-                //    node[i].Accept(this);
-                //}
+                // accept all parameters
+                for (int i = 0; i < children; i++)
+                {
+                    node[i].Accept(this);
+                }          
+
+                // already handled by Node.Call
                 break;
             case NodeType.Return:
                 CbType typ = CbType.Void;
@@ -257,10 +258,43 @@ public class TcVisitor: Visitor {
                 // check parameters
                 node[1].Accept(this);
 
+                string mname = ((AST_leaf)node[0]).Sval;
+
                 // semantic check for cbio.write
-                if (((AST_leaf)node[0]).Sval == "cbio.write" && (node[1].Type == CbType.Int || node[1].Type == CbType.String))
+                if (mname == "cbio.write" && (node[1].Type == CbType.Int || node[1].Type == CbType.String))
                 {
                     ReportError(node[0].LineNumber, "Invalid input type {0} for cbio.write", node[1].Type);
+                    break;
+                } 
+                // check for valid method call
+                else if (!Methods.ContainsKey(mname))
+                {
+                    ReportError(node[0].LineNumber, "Undeclared method call {0}", mname);
+                    break;
+                }
+                else
+                {
+                    // get method from dictionary
+                    CbMethod method;
+                    Methods.TryGetValue(mname, out method);
+                    AST args = node[1];
+
+                    // compare number of parameters
+                    int argnum = method.ArgType.Count;
+                    if (args.NumChildren != argnum)
+                        ReportError(node[1].LineNumber, "Invalid number of parameters for method {0}", mname);
+                    else if (argnum != 0)
+                    {
+                        // iterate through parameters and perform type checking
+                        for (int i = 0; i < argnum; i++)
+                        {
+                            if (args[i].Type != method.ArgType[i])
+                            {
+                                ReportError(node[1].LineNumber, "Invalid parameter type {0}; expected type {1}", args[i].Type, method.ArgType[i]);
+                            }
+                        }
+                    }
+                        
                 }
 
                 break;
