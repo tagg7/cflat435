@@ -16,7 +16,7 @@ namespace FrontEnd {
 
 
 public enum CbBasicType {
-    Void, Int, Bool, String, Error
+    Void, Int, Bool, String, Null, Error
 }
 
 public abstract class CbType {
@@ -24,6 +24,7 @@ public abstract class CbType {
     static CbType it = new CbBasic(CbBasicType.Int);
     static CbType bt = new CbBasic(CbBasicType.Bool);
     static CbType st = new CbBasic(CbBasicType.String);
+    static CbType nt = new CbBasic(CbBasicType.Null);
     static CbType et = new CbBasic(CbBasicType.Error);
     static IDictionary<CbType,CbType> arrayTypes = new Dictionary<CbType,CbType>();
 
@@ -32,6 +33,7 @@ public abstract class CbType {
     public static CbType Int{ get{ return it; } }
     public static CbType Bool{ get{ return bt; } }
     public static CbType String{ get{ return st; } }
+    public static CbType Null{ get{ return nt; } }
     public static CbType Error{ get{ return et; } }
 
     // Static method which returns a unique descriptor for an array type
