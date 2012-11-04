@@ -68,7 +68,7 @@ public class TcVisitor: Visitor {
 
         node[0].Accept(this);
 
-        if (children == 1)
+        if (children == 1 && node[0].Type != CbType.Error)
         {
             if (node[0].Type != tleaf)
             {
@@ -80,7 +80,7 @@ public class TcVisitor: Visitor {
         {
             node[1].Accept(this);
 
-            if (node[0].Type != tleaf && node[1].Type != tleaf)
+            if (node[0].Type != tleaf && node[1].Type != tleaf && node[0].Type != CbType.Error && node[1].Type != CbType.Error)
             {
                 ReportError(node[0].LineNumber, "Cannot perform {0} operation on type {1}", node.Tag, node[0].Type);
                 return 1;
@@ -190,6 +190,17 @@ public class TcVisitor: Visitor {
         case NodeType.LocalDecl:
             break;
         case NodeType.Assign:
+            // check left side
+            node[0].Accept(this);
+            // check right side
+            node[1].Accept(this);
+
+            // check that right and left hand sides have the same type
+            if (node[0].Type != node[1].Type && node[0].Type != CbType.Error && node[1].Type != CbType.Error)
+                ReportError(node[0].LineNumber, "Cannot convert from type {2} to {1}", node[0].Type, node[1].Type);
+
+            node.Type = node[0].Type;
+
             break;
         case NodeType.Call:
             break;
@@ -224,6 +235,11 @@ public class TcVisitor: Visitor {
 
             break;
         case NodeType.Read:
+            node[0].Accept(this);
+            node[1].Accept(this);
+
+            // checks?
+
             break;
         case NodeType.Add:
             basicTypeCheck(node, CbType.Int, CbType.Int);
