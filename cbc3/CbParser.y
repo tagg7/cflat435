@@ -116,12 +116,12 @@ FieldDecl:  Kwd_public Type IdentList ';'
 
 IdentList:  IdentList ',' Identifier
                                  { $1.AddChild($3); $$ = $1; }
-        | Identifier             { $$ = AST.Kary(NodeType.IdList, LineNumber, $1); }
+        | Identifier             { $$ = AST.Kary(NodeType.FieldList, LineNumber, $1); }
         ;
 
-MethodDecl:  Kwd_public Kwd_static Type Identifier '(' OptFormals ')' Block
+MethodDecl:  Kwd_public Kwd_static Kwd_void Identifier '(' OptFormals ')' Block
                         { $$ = AST.NonLeaf(NodeType.Method, LineNumber, null, $4, $6, $8); }
-        |   Kwd_public Kwd_static Identifier Identifier '(' OptFormals ')' Block  // NEW!
+        |   Kwd_public Kwd_static Type Identifier '(' OptFormals ')' Block  // NEW!
                         { $$ = AST.NonLeaf(NodeType.Method, LineNumber, $3, $4, $6, $8); }
         ;
 
@@ -241,9 +241,8 @@ Identifier:   Ident  { $$ = AST.Leaf(NodeType.Ident, LineNumber, lexer.yytext); 
 SConst:       StringConst { $$ = AST.Leaf(NodeType.StringConst, LineNumber, lexer.yytext); }
         ;
 
-IntConst:     Number  { $$ = AST.Leaf(NodeType.IntConst, LineNumber,
-                            int.Parse(lexer.yytext)); }
-        ;
+IntConst:     Number  { $$ = AST.Leaf(NodeType.IntConst, LineNumber, int.Parse(lexer.yytext)); }
+            ;
 
 %%
 

@@ -587,7 +587,7 @@ public class TcVisitor: Visitor {
 
                     node[0].Accept(this);
                     // create new CbMethod
-                    CbType typm = node[0].Type;
+                    CbType typm = lookUpType(node[0]);
                     CbMethod method = new CbMethod(name, typm);
 
                     // add argument list (full signature) to CbMethod
