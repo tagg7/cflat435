@@ -97,30 +97,18 @@ public class TcVisitor: Visitor {
         else
         {
             // it has to be an Ident node
-            result = lookUpIdenType(node);
-            if (result == CbType.Error)
-            {
-                // check if it's a struct
-                string name = ((AST_leaf)node).Sval;
-                if (Structs.ContainsKey(name))
-                    result = Structs[name];  // it's a struct type
-                else
-                    ReportError(node.LineNumber, "Unknown type {0}", name);
-            }
+            string name = ((AST_leaf)node).Sval;
+            if (Structs.ContainsKey(name))
+                result = Structs[name];  // it's a struct type
+            else if (name == "int")
+                result = CbType.Int;
+            else if (name == "string")
+                result = CbType.String;
+            else
+                ReportError(node.LineNumber, "Unknown type {0}", name);
         }
         node.Type = result; //annotate the node
         return result;
-    }
-
-    private CbType lookUpIdenType(AST node)
-    {
-        string iden = ((AST_leaf)node).Sval;
-        if (iden == "int")
-            return CbType.Int;
-        else if (iden == "string")
-            return CbType.String;
-        else
-            return CbType.Error;
     }
 
     public override void Visit(AST_kary node)
@@ -202,7 +190,7 @@ public class TcVisitor: Visitor {
                 CbType typact = node[2].Type;
 
                 // look up declared type
-                CbType typdec = lookUpIdenType(node[0]);
+                CbType typdec = lookUpType(node[0]);
 
                 if (typdec != CbType.Int && typdec != CbType.String)
                     ReportError(node[0].LineNumber, "Constants can only be of type int or string");
@@ -232,7 +220,7 @@ public class TcVisitor: Visitor {
                 node[0].Accept(this);
                 break;
             case NodeType.LocalDecl:
-                CbType typ = lookUpIdenType(node[0]);
+                CbType typ = lookUpType(node[0]);
                 // add identifiers to symbol table
                 AST idList = node[1];
                 int children = idList.NumChildren;
@@ -482,24 +470,16 @@ public class TcVisitor: Visitor {
                 CbType typ = CbType.Null;
                 if (node.Sval != "null")
                 {
-                    // check for predefined definitions int and string
-                    if (node.Sval == "int")
-                        typ = CbType.Int;
-                    else if (node.Sval == "string")
-                        typ = CbType.String;
-                    else
+                    // check symbol table for identifer
+                    SymTabEntry result = localSymbols.Lookup(node.Sval);
+                    if (result != null)
+                        typ = result.Type;
+                    else if (!(Consts.TryGetValue(node.Sval, out typ))) // if identifier not in symbol table, check in Consts, then if not found report error
                     {
-                        // check symbol table for identifer
-                        SymTabEntry result = localSymbols.Lookup(node.Sval);
-                        if (result != null)
-                            typ = result.Type;
-                        else if (!(Consts.TryGetValue(node.Sval, out typ))) // if identifier not in symbol table, check in Consts, then if not found report error
-                        {
-                            ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
-                            // add undeclared variable to the symbol table to prevent additional errors
-                            localSymbols.Binding(node.Sval, node.LineNumber);
-                            typ = CbType.Error;
-                        }
+                        ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
+                        // add undeclared variable to the symbol table to prevent additional errors
+                        localSymbols.Binding(node.Sval, node.LineNumber);
+                        typ = CbType.Error;
                     }
                 }
                 node.Type = typ;
@@ -536,7 +516,7 @@ public class TcVisitor: Visitor {
         // 3. fill in the field details for each struct in the Structs table
         for( int i = 0; i < arity; i++ ) {
             AST ch = decls[i];
-            string name = ((AST_leaf)(ch[1])).Sval;
+            string name;
             CbType typ;
             int argsize;
 
@@ -571,6 +551,8 @@ public class TcVisitor: Visitor {
                     break;
                 case NodeType.Const:
                     // Add the name and type of this constant to the Consts table
+                    name = ((AST_leaf)(ch[1])).Sval;
+
                     typ = lookUpType(ch[0]);
                     if (Consts.ContainsKey(name))
                         ReportError(ch[0].LineNumber, "Duplicate declaration of const {0}", name);
@@ -578,6 +560,8 @@ public class TcVisitor: Visitor {
                         Consts.Add(name, typ);
                     break;
                 case NodeType.Method:
+                    name = ((AST_leaf)(ch[1])).Sval;
+
                     // check for duplication method
                     if (Methods.ContainsKey(name))
                     {
