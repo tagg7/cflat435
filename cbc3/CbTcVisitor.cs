@@ -97,18 +97,30 @@ public class TcVisitor: Visitor {
         else
         {
             // it has to be an Ident node
-            string name = ((AST_leaf)node).Sval;
-            if (Structs.ContainsKey(name))
-                result = Structs[name];  // it's a struct type
-            else if (name == "int")
-                result = CbType.Int;
-            else if (name == "string")
-                result = CbType.String;
-            else
-                ReportError(node.LineNumber, "Unknown type {0}", name);
+            result = lookUpIdenType(node);
+            if (result == CbType.Error)
+            {
+                // check if it's a struct
+                string name = ((AST_leaf)node).Sval;
+                if (Structs.ContainsKey(name))
+                    result = Structs[name];  // it's a struct type
+                else
+                    ReportError(node.LineNumber, "Unknown type {0}", name);
+            }
         }
         node.Type = result; //annotate the node
         return result;
+    }
+
+    private CbType lookUpIdenType(AST node)
+    {
+        string iden = ((AST_leaf)node).Sval;
+        if (iden == "int")
+            return CbType.Int;
+        else if (iden == "string")
+            return CbType.String;
+        else
+            return CbType.Error;
     }
 
     public override void Visit(AST_kary node)
@@ -190,7 +202,7 @@ public class TcVisitor: Visitor {
                 CbType typact = node[2].Type;
 
                 // look up declared type
-                CbType typdec = lookUpType(node[0]);
+                CbType typdec = lookUpIdenType(node[0]);
 
                 if (typdec != CbType.Int && typdec != CbType.String)
                     ReportError(node[0].LineNumber, "Constants can only be of type int or string");
@@ -220,7 +232,7 @@ public class TcVisitor: Visitor {
                 node[0].Accept(this);
                 break;
             case NodeType.LocalDecl:
-                CbType typ = lookUpType(node[0]);
+                CbType typ = lookUpIdenType(node[0]);
                 // add identifiers to symbol table
                 AST idList = node[1];
                 int children = idList.NumChildren;
