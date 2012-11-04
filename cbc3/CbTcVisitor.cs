@@ -63,271 +63,330 @@ public class TcVisitor: Visitor {
 	}
 
     // check if child nodes are equal to "tleaf" value, then set the node type equal to "tnode"
-    private int basicTypeCheck( AST_nonleaf node, CbType tleaf, CbType tnode) {
+    private void basicTypeCheck( AST_nonleaf node, CbType tleaf, CbType tnode) {
         int children = node.NumChildren;
-
-        node[0].Accept(this);
-
-        if (children == 1 && node[0].Type != CbType.Error)
+        for (int i = 0; i < children; i++)
         {
-            if (node[0].Type != tleaf)
+            node[i].Accept(this);
+            if (node[i].Type != CbType.Error && node[i].Type != tleaf)
             {
-                ReportError(node[0].LineNumber, "Cannot perform {0} operation on types {1} and {2}", node.Tag, node[0].Type, node[1].Type);
-                return 1;
+                if (children > 1)
+                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types {1} and {2}", node.Tag, node[0].Type, node[1].Type);
+                else
+                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on type {1}", node.Tag, node[0].Type);
+                node.Type = CbType.Error;
+                return;
             }
         }
-        else if (children == 2)
-        {
-            node[1].Accept(this);
-
-            if (node[0].Type != tleaf && node[1].Type != tleaf && node[0].Type != CbType.Error && node[1].Type != CbType.Error)
-            {
-                ReportError(node[0].LineNumber, "Cannot perform {0} operation on type {1}", node.Tag, node[0].Type);
-                return 1;
-            }
-        }
-        
         node.Type = tnode;
-
-        return 0;
+        return;
     }
 
     // given an Ident or an Array node, look up the type representation
-    private CbType lookUpType( AST node ) {
+    private CbType lookUpType(AST node)
+    {
         CbType result = CbType.Error;
-        if (node.Tag == NodeType.Array) {
+        if (node.Tag == NodeType.Array)
+        {
             CbType elemType = lookUpType(node[0]);
             result = CbType.Array(elemType);
-        } else {
+        }
+        else
+        {
             // it has to be an Ident node
-            string name = ((AST_leaf)node).Sval;
-            if (Structs.ContainsKey(name))
-                result = Structs[name];  // it's a struct type
-            else if (name == "int")
-                result = CbType.Int;
-            else if (name == "string")
-                result = CbType.String;
-            else
-                ReportError(node.LineNumber, "Unknown type {0}", name);
+            result = lookUpIdenType(node);
+            if (result == CbType.Error)
+            {
+                // check if it's a struct
+                string name = ((AST_leaf)node).Sval;
+                if (Structs.ContainsKey(name))
+                    result = Structs[name];  // it's a struct type
+                else
+                    ReportError(node.LineNumber, "Unknown type {0}", name);
+            }
         }
         node.Type = result; //annotate the node
         return result;
     }
 
-	public override void Visit(AST_kary node) {
-        switch(node.Tag) {
-        case NodeType.UsingList:
-            break;
-        case NodeType.DeclList:
-            break;
-        case NodeType.FieldList:
-            break;
-        case NodeType.IdList:
-            break;
-        case NodeType.Formals:
-            break;
-        case NodeType.Block:
-            node[0].Accept(this);
+    private CbType lookUpIdenType(AST node)
+    {
+        string iden = ((AST_leaf)node).Sval;
+        if (iden == "int")
+            return CbType.Int;
+        else if (iden == "string")
+            return CbType.String;
+        else
+            return CbType.Error;
+    }
 
-            // declare node type?
-            break;
-        case NodeType.Actuals:
-            break;
-        case NodeType.Return:
-            break;
-        default:
-            throw new Exception("{0} is not a tag compatible with an AST_kary node");
+    public override void Visit(AST_kary node)
+    {
+        int children = node.NumChildren;
+        switch(node.Tag) {
+            case NodeType.UsingList:
+                for (int i = 0; i < children; i++)
+                {
+                    if (((AST_leaf)node[i]).Sval != "CbRuntime")
+                        ReportError(node[0].LineNumber, "The only using identifier allowed is CbRuntime");
+                }
+                break;
+            case NodeType.DeclList:
+                for (int i = 0; i < children; i++)
+                {
+                    node[i].Accept(this);
+                }
+                break;
+            case NodeType.FieldList:
+                // already handled by prePass...?
+                // TODO ?
+                break;
+            case NodeType.IdList:
+                // already handled in Node.LocalDecl
+                break;
+            case NodeType.Formals:
+                // already handled by prePass...?
+                // TODO ?
+                break;
+            case NodeType.Block:
+                localSymbols.Enter();
+                for (int i = 0; i < children; i++)
+                {
+                    node[i].Accept(this);
+                }
+                localSymbols.Exit();
+                break;
+            case NodeType.Actuals:
+                // TODO ? or will be handled by NodeType.Call ?
+                //children = node.NumChildren;
+                //for (int i = 0; i < children; i++)
+                //{
+                //    node[i].Accept(this);
+                //}
+                break;
+            case NodeType.Return:
+                CbType typ = CbType.Void;
+                if (node.NumChildren > 0)
+                {
+                    node[0].Accept(this);
+                    typ = node[0].Type;
+                }
+                // TODO - semantic check to verify this matches method return type
+                break;
+            default:
+                throw new Exception("{0} is not a tag compatible with an AST_kary node");
         }
     }
 
 	public override void Visit( AST_nonleaf node ) {
         switch(node.Tag) {
-        case NodeType.Program:
-            // do a multiple pre-pass over the declarations of structs, methods and consts
-            prePass(node[2]);
-            // now check that the using list is OK
-            node[0].Accept(this);
-            // now typecheck the bodies of method declarations
-            node[2].Accept(this);
-            break;
-        case NodeType.Const:
-            node[0].Accept(this);
-            // are these checks necessary?
-            node[1].Accept(this);
-            node[2].Accept(this);
+            case NodeType.Program:
+                // do a multiple pre-pass over the declarations of structs, methods and consts
+                prePass(node[2]);
+                // now check that the using list is OK
+                node[0].Accept(this);
+                // now typecheck the bodies of method declarations
+                node[2].Accept(this);
+                break;
+            case NodeType.Const:
+                // get type of value
+                node[2].Accept(this);
+                CbType typact = node[2].Type;
 
-            CbType typ = CbType.Error;
-            CbType typc = lookUpType(node[0]);
+                // look up declared type
+                CbType typdec = lookUpIdenType(node[0]);
 
-            // check that type matches declared type in constants dictionary
-            if (typc != CbType.Int && typc == CbType.String)
-                ReportError(node[0].LineNumber, "Invalid constant type declaration");
-            else
-                Consts.TryGetValue(((AST_leaf)(node[1])).Sval, out typ);
+                if (typdec != CbType.Int && typdec != CbType.String)
+                    ReportError(node[0].LineNumber, "Constants can only be of type int or string");
+                else if (typact != CbType.Int && typact != CbType.String)
+                    ReportError(node[0].LineNumber, "Constants must be set to a number or string constant");
+                else if (typdec != typact)
+                    ReportError(node[0].LineNumber, "Mismatched constant type declaration ({0} = {1})", typdec, typact);
 
-            if(typc != typ)
-                ReportError(node[0].LineNumber, "Mismatched constant type declaration");
-            
-            break;
-        case NodeType.Struct:
-            // Nothing to do ... this has been handled by the prePass method below
-            break;
-        case NodeType.Method:
-            localSymbols.Empty();  // clear the symbol table
-            // FIX ME!
-            // We have to typecheck the method
-            // 1. initialize the symbol table with the formal parameters
-            // 2. visit the body of the method, type checking it
-            break;
-        case NodeType.FieldDecl:
-            // Nothing to do ... this has been handled by the prePass method below
-            break;
-        case NodeType.Formal:
-            // Nothing to do ... this has been handled by the prePass method below
-            break;
-        case NodeType.Array:
-            break;
-        case NodeType.LocalDecl:
-            break;
-        case NodeType.Assign:
-            // check left side
-            node[0].Accept(this);
-            // check right side
-            node[1].Accept(this);
+                break;
+            case NodeType.Struct:
+                // Nothing to do ... this has been handled by the prePass method below
+                break;
+            case NodeType.Method:
+                localSymbols.Empty();  // clear the symbol table
+                // TODO : FIX ME!
+                // We have to typecheck the method
+                // 1. initialize the symbol table with the formal parameters
+                // 2. visit the body of the method, type checking it
+                break;
+            case NodeType.FieldDecl:
+                // Nothing to do ... this has been handled by the prePass method below
+                break;
+            case NodeType.Formal:
+                // Nothing to do ... this has been handled by the prePass method below
+                break;
+            case NodeType.Array:
+                node[0].Accept(this);
+                break;
+            case NodeType.LocalDecl:
+                CbType typ = lookUpIdenType(node[0]);
+                // add identifiers to symbol table
+                AST idList = node[1];
+                int children = idList.NumChildren;
+                for (int i = 0; i < children; i++)
+                {
+                    if (localSymbols.Lookup(((AST_leaf)idList[i]).Sval) != null)
+                        ReportError(node[0].LineNumber, "Duplicate variable declaration: {0}", ((AST_leaf)idList[i]).Sval);
+                    else
+                        localSymbols.Binding(((AST_leaf)idList[i]).Sval, node.LineNumber).Type = typ;
+                }
+                break;
+            case NodeType.Assign:
+                // check left side
+                node[0].Accept(this);
+                // check right side
+                node[1].Accept(this);
 
-            // check that right and left hand sides have the same type
-            if (node[0].Type != node[1].Type && node[0].Type != CbType.Error && node[1].Type != CbType.Error)
-                ReportError(node[0].LineNumber, "Cannot convert from type {2} to {1}", node[0].Type, node[1].Type);
+                // check that right and left hand sides have the same type
+                if (node[0].Type != node[1].Type && node[0].Type != CbType.Error && node[1].Type != CbType.Error)
+                    ReportError(node[0].LineNumber, "Cannot convert from type {1} to {0}", node[1].Type, node[0].Type);
 
-            node.Type = node[0].Type;
+                node.Type = node[0].Type;
+                break;
+            case NodeType.Call:
+                // semantic check for cbio.write here
+                // TODO
+                break;
+            case NodeType.PlusPlus:
+                //node[0].Accept(this);
+                break;
+            case NodeType.MinusMinus:
+                //node[0].Accept(this);
+                break;
+            case NodeType.If:
+                // check boolean parameter
+                node[0].Accept(this);
 
-            break;
-        case NodeType.Call:
-            break;
-        case NodeType.PlusPlus:
-            break;
-        case NodeType.MinusMinus:
-            break;
-        case NodeType.If:
-            // check boolean parameter
-            node[0].Accept(this);
-            // now check the do statement
-            node[1].Accept(this);
-            // now check for the else statement
-            node[2].Accept(this);
+                if(node[0].Type != CbType.Bool)
+                    ReportError(node[0].LineNumber, "Invalid boolean expression");
 
-            if(node[0].Type != CbType.Bool)
-                ReportError(node[0].LineNumber, "Invalid boolean expression");
+                // now check the do statement
+                node[1].Accept(this);
+                // now check for the else statement
+                node[2].Accept(this);
 
-            // type declaration?
+                // no type declaration
+                break;
+            case NodeType.While:
+                // check boolean parameter
+                node[0].Accept(this);
+                // now check the do statement
+                node[1].Accept(this);
 
-            break;
-        case NodeType.While:
-            // check boolean parameter
-            node[0].Accept(this);
-            // now check the do statement
-            node[1].Accept(this);
+                if (node[0].Type != CbType.Bool)
+                    ReportError(node[0].LineNumber, "Invalid boolean expression");
 
-            if (node[0].Type != CbType.Bool)
-                ReportError(node[0].LineNumber, "Invalid boolean expression");
-
-            // type declaration?           
-
-            break;
-        case NodeType.Read:
-            node[0].Accept(this);
-            node[1].Accept(this);
-
-            // checks?
-
-            break;
-        case NodeType.Add:
-            basicTypeCheck(node, CbType.Int, CbType.Int);
-            break;
-        case NodeType.Sub:
-            basicTypeCheck(node, CbType.Int, CbType.Int);
-            break;
-        case NodeType.Mul:
-            basicTypeCheck(node, CbType.Int, CbType.Int);
-            break;
-        case NodeType.Div:
-            basicTypeCheck(node, CbType.Int, CbType.Int);
-            break;
-        case NodeType.Mod:
-            basicTypeCheck(node, CbType.Int, CbType.Int);
-            break;
-        case NodeType.And:
-            basicTypeCheck(node, CbType.Bool, CbType.Bool);
-            break;
-        case NodeType.Or:
-            basicTypeCheck(node, CbType.Bool, CbType.Bool);
-            break;
-        case NodeType.Equals:
-            basicTypeCheck(node, CbType.Int, CbType.Bool);
-            break;
-        case NodeType.NotEquals:
-            basicTypeCheck(node, CbType.Int, CbType.Bool);
-            break;
-        case NodeType.LessThan:
-            basicTypeCheck(node, CbType.Int, CbType.Bool);
-            break;
-        case NodeType.GreaterThan:
-            basicTypeCheck(node, CbType.Int, CbType.Bool);
-            break;
-        case NodeType.LessOrEqual:
-            basicTypeCheck(node, CbType.Int, CbType.Bool);
-            break;
-        case NodeType.GreaterOrEqual:
-            basicTypeCheck(node, CbType.Int, CbType.Bool);
-            break;
-        case NodeType.UnaryMinus:
-            basicTypeCheck(node, CbType.Int, CbType.Int);
-            break;
-        case NodeType.Dot:
-            break;
-        case NodeType.NewStruct:
-            break;
-        case NodeType.NewArray:
-            break;
-        case NodeType.Index:
-            break;
-        default:
-            throw new Exception("{0} is not a tag compatible with an AST_nonleaf node");
+                // no type declaration
+                break;
+            case NodeType.Read:
+                // TODO : check if this is right
+                // The two children should be the method 'cbio.read' and the variable v
+                node[1].Accept(this);
+                if (((AST_leaf)node[0]).Sval != "cbio.read")
+                    ReportError(node[0].LineNumber, "Invalid call to method using keyword out");
+                else if (node[1].Type != CbType.Int)
+                    ReportError(node[0].LineNumber, "Invalid call to method cbio.read(out int val)");
+                break;
+            case NodeType.Add:
+                basicTypeCheck(node, CbType.Int, CbType.Int);
+                break;
+            case NodeType.Sub:
+                basicTypeCheck(node, CbType.Int, CbType.Int);
+                break;
+            case NodeType.Mul:
+                basicTypeCheck(node, CbType.Int, CbType.Int);
+                break;
+            case NodeType.Div:
+                basicTypeCheck(node, CbType.Int, CbType.Int);
+                break;
+            case NodeType.Mod:
+                basicTypeCheck(node, CbType.Int, CbType.Int);
+                break;
+            case NodeType.And:
+                basicTypeCheck(node, CbType.Bool, CbType.Bool);
+                break;
+            case NodeType.Or:
+                basicTypeCheck(node, CbType.Bool, CbType.Bool);
+                break;
+            case NodeType.Equals:
+                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                break;
+            case NodeType.NotEquals:
+                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                break;
+            case NodeType.LessThan:
+                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                break;
+            case NodeType.GreaterThan:
+                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                break;
+            case NodeType.LessOrEqual:
+                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                break;
+            case NodeType.GreaterOrEqual:
+                basicTypeCheck(node, node[0].Type, CbType.Bool);
+                break;
+            case NodeType.UnaryMinus:
+                basicTypeCheck(node, CbType.Int, CbType.Int);
+                break;
+            case NodeType.Dot:
+                // semantic check for string.Length here
+                // TODO
+                break;
+            case NodeType.NewStruct:
+                // TODO
+                break;
+            case NodeType.NewArray:
+                // TODO
+                break;
+            case NodeType.Index:
+                // TODO
+                break;
+            default:
+                throw new Exception("{0} is not a tag compatible with an AST_nonleaf node");
         }
     }
 
 	public override void Visit(AST_leaf node) {
         switch(node.Tag) {
-        case NodeType.Empty:
-            node.Type = CbType.Void;
-            break;
-        case NodeType.Break:
-            // need to declare as void?
-            node.Type = CbType.Void;
-            break;
-        case NodeType.IntConst:
-            node.Type = CbType.Int;
-            break;
-        case NodeType.StringConst:
-            node.Type = CbType.String;
-            break;
-        case NodeType.Ident:
-            // check symbol table and constant dictionary for identifer
-            if (localSymbols.Lookup(node.Sval) == null && Consts.ContainsKey(node.Sval) == false)
-            {
-                ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
-                // add undeclared variable to the symbol table to prevent additional errors
-                localSymbols.Binding(node.Sval, node.LineNumber);
-                node.Type = CbType.Error;
-            }
-            else
-            {
+            case NodeType.Empty:
+                // no type
+                break;
+            case NodeType.Break:
+                // no type
+                break;
+            case NodeType.IntConst:
+                node.Type = CbType.Int;
+                break;
+            case NodeType.StringConst:
                 node.Type = CbType.String;
-            }
+                break;
+            case NodeType.Ident:
+                CbType typ = CbType.Null;
+                if (node.Sval != "null")
+                {
+                    // check symbol table for identifer
+                    SymTabEntry result = localSymbols.Lookup(node.Sval);
+                    if (result != null)
+                        typ = result.Type;
+                    else if (!(Consts.TryGetValue(node.Sval, out typ))) // if identifier not in symbol table, check in Consts, then if not found report error
+                    {
+                        ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
+                        // add undeclared variable to the symbol table to prevent additional errors
+                        localSymbols.Binding(node.Sval, node.LineNumber);
+                        typ = CbType.Error;
+                    }
+                }
+                node.Type = typ;
 
-            break;
-        default:
-            throw new Exception("{0} is not a tag compatible with an AST_leaf node");
+                break;
+            default:
+                throw new Exception("{0} is not a tag compatible with an AST_leaf node");
         }
     }
 
@@ -362,61 +421,61 @@ public class TcVisitor: Visitor {
             int argsize;
 
             switch(ch.Tag) {
-            case NodeType.Struct:
-                // FIX ME!
-                // Add the fields to the CbStruct instance in the Structs table
-                CbStruct str;
-                name = ((AST_leaf)(ch[0])).Sval;
+                case NodeType.Struct:
+                    // FIX ME!
+                    // Add the fields to the CbStruct instance in the Structs table
+                    CbStruct str;
+                    name = ((AST_leaf)(ch[0])).Sval;
 
-                // find existing struct
-                Structs.TryGetValue(name, out str);     // do error checking
+                    // find existing struct
+                    Structs.TryGetValue(name, out str);     // do error checking
 
-                AST fldlst = ch[1];
-                AST fld;
-                AST idlst;
+                    AST fldlst = ch[1];
+                    AST fld;
+                    AST idlst;
                 
-                argsize = fldlst.NumChildren;
-                int idsize;
-                // iterate through the field list
-                for (int j = 0; j < argsize; j++)
-                {
-                    // get field declaration
-                    fld = fldlst[j];
-                    // find declaration type
-                    typ = lookUpType(fld[0]);
-                    // get list of variables declared
-                    idlst = fld[1];
-                    idsize = idlst.NumChildren;
-                    // add all declared variables to the struct
-                    for(int k = 0; k < idsize; k++)
-                        str.AddField(((AST_leaf)(idlst[k])).Sval, typ);
-                }
+                    argsize = fldlst.NumChildren;
+                    int idsize;
+                    // iterate through the field list
+                    for (int j = 0; j < argsize; j++)
+                    {
+                        // get field declaration
+                        fld = fldlst[j];
+                        // find declaration type
+                        typ = lookUpType(fld[0]);
+                        // get list of variables declared
+                        idlst = fld[1];
+                        idsize = idlst.NumChildren;
+                        // add all declared variables to the struct
+                        for(int k = 0; k < idsize; k++)
+                            str.AddField(((AST_leaf)(idlst[k])).Sval, typ);
+                    }
+                    break;
+                case NodeType.Const:
+                    // Add the name and type of this constant to the Consts table
+                    typ = lookUpType(ch[0]);
+                    if (Consts.ContainsKey(name))
+                        ReportError(ch[0].LineNumber, "Duplicate declaration of const {0}", name);
+                    else
+                        Consts.Add(name, typ);
+                    break;
+                case NodeType.Method:
+                    // create new CbMethod
+                    CbType typm = ch[0].Type; // NOTE: FIX ME! Needs to set proper method type
+                    CbMethod method = new CbMethod(name, typm);
 
-                break;
-            case NodeType.Const:
-                // Add the name and type of this constant to the Consts table
-                typ = lookUpType(ch[0]);
-                if (Consts.ContainsKey(name))
-                    ReportError(ch[0].LineNumber, "Duplicate declaration of const {0}", name);
-                else
-                    Consts.Add(name, typ);
-                break;
-            case NodeType.Method:
-                // create new CbMethod
-                CbType typm = ch[0].Type; // NOTE: FIX ME! Needs to set proper method type
-                CbMethod method = new CbMethod(name, typm);
+                    // add argument list (full signature) to CbMethod
+                    AST args = ch[3];
+                    argsize = args.NumChildren;
+                    for(int j = 0; j < argsize; j++)
+                        method.ArgType.Add(args[j].Type);
 
-                // add argument list (full signature) to CbMethod
-                AST args = ch[3];
-                argsize = args.NumChildren;
-                for(int j = 0; j < argsize; j++)
-                    method.ArgType.Add(args[j].Type);
+                    // TODO : prevent duplicate declaration of methods
+                    Methods.Add(name, method);
 
-                Methods.Add(name, method);
-
-                break;
-            default:
-                throw new Exception("Unexpected node type " + ch.Tag);
+                    break;
+                default:
+                    throw new Exception("Unexpected node type " + ch.Tag);
             }
         }
     }

@@ -116,7 +116,7 @@ FieldDecl:  Kwd_public Type IdentList ';'
 
 IdentList:  IdentList ',' Identifier
                                  { $1.AddChild($3); $$ = $1; }
-        | Identifier             { $$ = AST.Kary(NodeType.FieldList, LineNumber, $1); }
+        | Identifier             { $$ = AST.Kary(NodeType.IdList, LineNumber, $1); }
         ;
 
 MethodDecl:  Kwd_public Kwd_static Type Identifier '(' OptFormals ')' Block
