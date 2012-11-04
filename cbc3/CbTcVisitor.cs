@@ -148,8 +148,12 @@ public class TcVisitor: Visitor {
                 // already handled in Node.LocalDecl
                 break;
             case NodeType.Formals:
-                // already handled by prePass...?
-                // TODO ?
+                for (int i = 0; i < children; i++)
+                {
+                    node[i].Accept(this);
+                }
+
+                // already handled in Node.Call
                 break;
             case NodeType.Block:
                 localSymbols.Enter();
@@ -166,7 +170,7 @@ public class TcVisitor: Visitor {
                     node[i].Accept(this);
                 }          
 
-                // already handled by Node.Call
+                // already handled by ??
                 break;
             case NodeType.Return:
                 CbType typ = CbType.Void;
@@ -175,7 +179,7 @@ public class TcVisitor: Visitor {
                     node[0].Accept(this);
                     typ = node[0].Type;
                 }
-                // TODO - semantic check to verify this matches method return type
+                // TODO : semantic check to verify this matches method return type
                 break;
             default:
                 throw new Exception("{0} is not a tag compatible with an AST_kary node");
@@ -478,16 +482,24 @@ public class TcVisitor: Visitor {
                 CbType typ = CbType.Null;
                 if (node.Sval != "null")
                 {
-                    // check symbol table for identifer
-                    SymTabEntry result = localSymbols.Lookup(node.Sval);
-                    if (result != null)
-                        typ = result.Type;
-                    else if (!(Consts.TryGetValue(node.Sval, out typ))) // if identifier not in symbol table, check in Consts, then if not found report error
+                    // check for predefined definitions int and string
+                    if (node.Sval == "int")
+                        typ = CbType.Int;
+                    else if (node.Sval == "string")
+                        typ = CbType.String;
+                    else
                     {
-                        ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
-                        // add undeclared variable to the symbol table to prevent additional errors
-                        localSymbols.Binding(node.Sval, node.LineNumber);
-                        typ = CbType.Error;
+                        // check symbol table for identifer
+                        SymTabEntry result = localSymbols.Lookup(node.Sval);
+                        if (result != null)
+                            typ = result.Type;
+                        else if (!(Consts.TryGetValue(node.Sval, out typ))) // if identifier not in symbol table, check in Consts, then if not found report error
+                        {
+                            ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
+                            // add undeclared variable to the symbol table to prevent additional errors
+                            localSymbols.Binding(node.Sval, node.LineNumber);
+                            typ = CbType.Error;
+                        }
                     }
                 }
                 node.Type = typ;
@@ -566,17 +578,27 @@ public class TcVisitor: Visitor {
                         Consts.Add(name, typ);
                     break;
                 case NodeType.Method:
+                    // check for duplication method
+                    if (Methods.ContainsKey(name))
+                    {
+                        ReportError(ch[0].LineNumber, "Duplicate declaration of method {0}", name);
+                        break;
+                    }
+
+                    node[0].Accept(this);
                     // create new CbMethod
-                    CbType typm = ch[0].Type; // NOTE: FIX ME! Needs to set proper method type
+                    CbType typm = node[0].Type;
                     CbMethod method = new CbMethod(name, typm);
 
                     // add argument list (full signature) to CbMethod
                     AST args = ch[3];
                     argsize = args.NumChildren;
-                    for(int j = 0; j < argsize; j++)
+                    for (int j = 0; j < argsize; j++)
+                    {
+                        args[j].Accept(this);
                         method.ArgType.Add(args[j].Type);
+                    }
 
-                    // TODO : prevent duplicate declaration of methods
                     Methods.Add(name, method);
 
                     break;
