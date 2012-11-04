@@ -335,11 +335,35 @@ public class TcVisitor: Visitor {
                 basicTypeCheck(node, CbType.Int, CbType.Int);
                 break;
             case NodeType.Dot:
-                // semantic check for string.Length here
-                // TODO
+                // read in "string".val (null if right side is not "Length")
+                node[0].Accept(this);
+                // read in read in string."val"
+                node[1].Accept(this);
+
+                // semantic check for string.Length
+                if (((AST_leaf)node[1]).Sval != "length")
+                    ReportError(node[0].LineNumber, "Invalid string length usage");
+
+                // TODO : check that right hand side is valid in the current context (cbio.read, cbio.write, specific structs?)
+
+                node.Type = CbType.Int; // correct type declaration?
+
                 break;
             case NodeType.NewStruct:
-                // TODO
+                // read in struct type
+                node[0].Accept(this);
+
+                // declare type
+                if (((AST_leaf)node[0]).Sval == "string")
+                    node.Type = CbType.Array(CbType.String);
+                else if (((AST_leaf)node[0]).Sval == "int")
+                    node.Type = CbType.Array(CbType.Int);
+                else
+                {
+                    ReportError(node[0].LineNumber, "Invalid type {0}", ((AST_leaf)node[0]).Sval);
+                    node.Type = CbType.Array(CbType.Error);     // is this the correct type for an error?
+                }
+
                 break;
             case NodeType.NewArray:
                 // read in array type
