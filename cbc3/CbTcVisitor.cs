@@ -257,7 +257,8 @@ public class TcVisitor: Visitor {
                 AST idList = node[1];
                 for (int i = 0; i < idList.NumChildren; i++)
                 {
-                    if (localSymbols.Lookup(((AST_leaf)idList[i]).Sval) != null)
+                    // check for duplicates
+                    if (localSymbols.Lookup(((AST_leaf)idList[i]).Sval))
                         ReportError(node[0].LineNumber, "Duplicate variable declaration: {0}", ((AST_leaf)idList[i]).Sval);
                     else
                         localSymbols.Binding(((AST_leaf)idList[i]).Sval, node.LineNumber).Type = typ;
@@ -289,6 +290,8 @@ public class TcVisitor: Visitor {
                 else
                     mname = ((AST_leaf)node[0]).Sval;
 
+                Node.Type = CbType.Void; 
+
                 // semantic check for cbio.write
                 if (mname == "cbio.write")
                 {
@@ -296,7 +299,6 @@ public class TcVisitor: Visitor {
                         ReportError(node[0].LineNumber, "Invalid input type {0} for cbio.write", node[1].Type);
                     if (node[1].NumChildren != 1)
                         ReportError(node[1].LineNumber, "Invalid number of parameters for cbio.write");
-
                     break;
                 }
                 // check for invalid cbio.read call
@@ -328,6 +330,7 @@ public class TcVisitor: Visitor {
                         }
                     }
 
+                    Node.Type = method.ResultType;
                 }
 
                 break;
@@ -344,7 +347,7 @@ public class TcVisitor: Visitor {
                 node[0].Accept(this);
 
                 if(node[0].Type != CbType.Bool)
-                    ReportError(node[0].LineNumber, "Invalid boolean expression");
+                    ReportError(node[0].LineNumber, "Invalid boolean expression for if statement");
 
                 // now check the do statement
                 node[1].Accept(this);
@@ -360,7 +363,7 @@ public class TcVisitor: Visitor {
                 node[1].Accept(this);
 
                 if (node[0].Type != CbType.Bool)
-                    ReportError(node[0].LineNumber, "Invalid boolean expression");
+                    ReportError(node[0].LineNumber, "Invalid boolean expression for while statement");
 
                 // no type declaration
                 break;
@@ -371,7 +374,7 @@ public class TcVisitor: Visitor {
                 node[1].Accept(this);
                 if (node[0].Tag != NodeType.Dot || node[1].Type != CbType.Int || node[0][0].Tag != NodeType.Ident || node[0][1].Tag != NodeType.Ident
                     || ((AST_leaf)node[0][0]).Sval != "cbio" || ((AST_leaf)node[0][1]).Sval != "read")
-                    ReportError(node[0].LineNumber, "Invalid call to method cbio.read(out int val)");
+                    ReportError(node[0].LineNumber, "Invalid call to method cbio.read");
                 break;
             case NodeType.Add:
                 basicTypeCheck(node, CbType.Int, CbType.Int);
