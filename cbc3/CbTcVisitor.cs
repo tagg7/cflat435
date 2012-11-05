@@ -502,24 +502,16 @@ public class TcVisitor: Visitor {
                 CbType typ = CbType.Null;
                 if (node.Sval != "null")
                 {
-                    // check for predefined definitions int and string
-                    if (node.Sval == "int")
-                        typ = CbType.Int;
-                    else if (node.Sval == "string")
-                        typ = CbType.String;
-                    else
+                    // check symbol table for identifer
+                    SymTabEntry result = localSymbols.Lookup(node.Sval);
+                    if (result != null)
+                        typ = result.Type;
+                    else if (!(Consts.TryGetValue(node.Sval, out typ))) // if identifier not in symbol table, check in Consts, then if not found report error
                     {
-                        // check symbol table for identifer
-                        SymTabEntry result = localSymbols.Lookup(node.Sval);
-                        if (result != null)
-                            typ = result.Type;
-                        else if (!(Consts.TryGetValue(node.Sval, out typ))) // if identifier not in symbol table, check in Consts, then if not found report error
-                        {
-                            ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
-                            // add undeclared variable to the symbol table to prevent additional errors
-                            localSymbols.Binding(node.Sval, node.LineNumber);
-                            typ = CbType.Error;
-                        }
+                        ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
+                        // add undeclared variable to the symbol table to prevent additional errors
+                        localSymbols.Binding(node.Sval, node.LineNumber);
+                        typ = CbType.Error;
                     }
                 }
                 node.Type = typ;
@@ -556,7 +548,7 @@ public class TcVisitor: Visitor {
         // 3. fill in the field details for each struct in the Structs table
         for( int i = 0; i < arity; i++ ) {
             AST ch = decls[i];
-            string name = ((AST_leaf)(ch[1])).Sval;
+            string name;
             CbType typ;
             int argsize;
 
@@ -591,6 +583,8 @@ public class TcVisitor: Visitor {
                     break;
                 case NodeType.Const:
                     // Add the name and type of this constant to the Consts table
+                    name = ((AST_leaf)(ch[1])).Sval;
+
                     typ = lookUpType(ch[0]);
                     if (Consts.ContainsKey(name))
                         ReportError(ch[0].LineNumber, "Duplicate declaration of const {0}", name);
@@ -598,6 +592,8 @@ public class TcVisitor: Visitor {
                         Consts.Add(name, typ);
                     break;
                 case NodeType.Method:
+                    name = ((AST_leaf)(ch[1])).Sval;
+
                     // check for duplication method
                     if (Methods.ContainsKey(name))
                     {
@@ -605,18 +601,20 @@ public class TcVisitor: Visitor {
                         break;
                     }
 
-                    node[0].Accept(this);
+                    CbType typm = CbType.Void;
                     // create new CbMethod
-                    CbType typm = lookUpType(node[0]);
+                    if(ch[0] != null)
+                        typm = lookUpType(ch[0]);
                     CbMethod method = new CbMethod(name, typm);
 
                     // add argument list (full signature) to CbMethod
-                    AST args = ch[3];
+                    AST args = ch[2];
+                    AST temp;
                     argsize = args.NumChildren;
                     for (int j = 0; j < argsize; j++)
                     {
-                        args[j].Accept(this);
-                        method.ArgType.Add(args[j].Type);
+                        temp = args[j];
+                        method.ArgType.Add(lookUpType(temp[0]));
                     }
 
                     Methods.Add(name, method);
