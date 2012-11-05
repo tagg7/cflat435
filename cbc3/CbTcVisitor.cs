@@ -211,6 +211,7 @@ public class TcVisitor: Visitor {
                     return method;
             }
         }
+
         return null;
     }
 
@@ -378,7 +379,7 @@ public class TcVisitor: Visitor {
                 node[1].Accept(this);
                 if (node[0].Tag != NodeType.Dot || node[1].Type != CbType.Int || node[0][0].Tag != NodeType.Ident || node[0][1].Tag != NodeType.Ident
                     || ((AST_leaf)node[0][0]).Sval != "cbio" || ((AST_leaf)node[0][1]).Sval != "read")
-                    ReportError(node[0].LineNumber, "Invalid call to method cbio.read");
+                    ReportError(node[0].LineNumber, "Invalid read method call");
                 break;
             case NodeType.Add:
                 basicTypeCheck(node, CbType.Int, CbType.Int);
@@ -456,6 +457,9 @@ public class TcVisitor: Visitor {
                         else
                             ReportError(node[0].LineNumber, "Unknown field {0} of struct {1}", rhs, structname);
                     }
+                    // check for Length type
+                    else if (node[0].Type == CbType.Array(CbType.Int) && rhs == "Length")
+                        break;
                     else
                         ReportError(node[0].LineNumber, "Unknown usage of dot on type {0}", node[0].Type);
                 }
@@ -528,8 +532,7 @@ public class TcVisitor: Visitor {
                     if (result != null)
                         typ = result.Type;
                     // if identifier not in symbol table, check in Consts, then if not found report error
-                    else if (!(Consts.TryGetValue(str, out typ)) && str != "write" && str != "read"
-                                && str != "int" && str != "string" && str != "Length" && str != "cbio")
+                    else if (!(Consts.TryGetValue(str, out typ)))
                     {
                         ReportError(node.LineNumber, "Undeclared identifier {0}", str);
                         // add undeclared variable to the symbol table to prevent additional errors
