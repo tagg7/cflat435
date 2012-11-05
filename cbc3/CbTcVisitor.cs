@@ -71,7 +71,7 @@ public class TcVisitor: Visitor {
             if (node[i].Type != CbType.Error && node[i].Type != tleaf)
             {
                 if (children > 1)
-                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types {1} and {2}", node.Tag, node[0].Type, node[1].Type);
+                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types '{1}' and '{2}'", node.Tag, node[0].Type, node[1].Type);
                 else
                     ReportError(node[i].LineNumber, "Cannot perform {0} operation on type {1}", node.Tag, node[0].Type);
                 node.Type = CbType.Error;
@@ -148,15 +148,21 @@ public class TcVisitor: Visitor {
                 // already handled in NodeType.LocalDecl
                 break;
             case NodeType.Formals:
+                // accept all statements
                 for (int i = 0; i < children; i++)
                     node[i].Accept(this);
                 break;
             case NodeType.Block:
+                // change scope
                 localSymbols.Enter();
+                
+                // accept all statements
                 for (int i = 0; i < children; i++)
                 {
                     node[i].Accept(this);
                 }
+
+                // change scope
                 localSymbols.Exit();
                 break;
             case NodeType.Actuals:
@@ -491,14 +497,18 @@ public class TcVisitor: Visitor {
 
                 break;
             case NodeType.Index:
+                // read in index
                 node[0].Accept(this);
+                // read in qualifiers
                 node[1].Accept(this);
 
+                // perform error checking
                 node.Type = CbType.Error;
                 if (node[1].Type != CbType.Int && node[1].Type != CbType.Error)
                     ReportError(node[0].LineNumber, "Array index type must be int, not {0}", node[1].Type);
                 else if (!(node[0].Type is CbArray) && node[0].Type != CbType.Error) // TODO : do this without instanceof
                     ReportError(node[0].LineNumber, "Array indexing used on non-array type {0}", node[0].Type);
+                // set type equal to index type
                 else
                     node.Type = ((CbArray)node[0].Type).ElementType;
                 break;
@@ -511,7 +521,6 @@ public class TcVisitor: Visitor {
         switch(node.Tag) {
             case NodeType.Empty:
                 // no type
-                // node.Type = CbType.Void;
                 break;
             case NodeType.Break:
                 // no type
@@ -525,6 +534,7 @@ public class TcVisitor: Visitor {
             case NodeType.Ident:
                 CbType typ = CbType.Null;
                 string str = node.Sval;
+                
                 if (str != "null")
                 {
                     // check symbol table for identifer
