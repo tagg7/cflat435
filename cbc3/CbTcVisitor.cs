@@ -71,7 +71,7 @@ public class TcVisitor: Visitor {
             if (node[i].Type != CbType.Error && node[i].Type != tleaf)
             {
                 if (children > 1)
-                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types {1} and {2}", node.Tag, node[0].Type, node[1].Type);
+                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types '{1}' and '{2}'", node.Tag, node[0].Type, node[1].Type);
                 else
                     ReportError(node[i].LineNumber, "Cannot perform {0} operation on type {1}", node.Tag, node[0].Type);
                 node.Type = CbType.Error;
@@ -148,15 +148,21 @@ public class TcVisitor: Visitor {
                 // already handled in NodeType.LocalDecl
                 break;
             case NodeType.Formals:
+                // visit all statements
                 for (int i = 0; i < children; i++)
                     node[i].Accept(this);
                 break;
             case NodeType.Block:
+                // change scope
                 localSymbols.Enter();
+                
+                // accept all statements
                 for (int i = 0; i < children; i++)
                 {
                     node[i].Accept(this);
                 }
+
+                // change scope
                 localSymbols.Exit();
                 break;
             case NodeType.Actuals:
@@ -292,6 +298,7 @@ public class TcVisitor: Visitor {
                 AST idList = node[1];
                 for (int i = 0; i < idList.NumChildren; i++)
                 {
+                    // check for duplicates
                     if (localSymbols.Lookup(((AST_leaf)idList[i]).Sval) != null)
                         ReportError(node[0].LineNumber, "Duplicate variable declaration: {0}", ((AST_leaf)idList[i]).Sval);
                     else
@@ -328,7 +335,8 @@ public class TcVisitor: Visitor {
                 else
                     mname = ((AST_leaf)node[0]).Sval;
 
-                if (mname != null && node[1].Type != CbType.Error) {
+                if (mname != null && node[1].Type != CbType.Error)
+                {
                     // check for valid method call
                     CbMethod method = getMethod(mname, node[1]);
                     if (method == null)
@@ -350,7 +358,7 @@ public class TcVisitor: Visitor {
                 node[0].Accept(this);
 
                 if(node[0].Type != CbType.Bool)
-                    ReportError(node[0].LineNumber, "Invalid boolean expression");
+                    ReportError(node[0].LineNumber, "Invalid boolean expression for if statement");
 
                 // now check the do statement
                 node[1].Accept(this);
@@ -366,7 +374,7 @@ public class TcVisitor: Visitor {
                 node[1].Accept(this);
 
                 if (node[0].Type != CbType.Bool)
-                    ReportError(node[0].LineNumber, "Invalid boolean expression");
+                    ReportError(node[0].LineNumber, "Invalid boolean expression for while statement");
 
                 // no type declaration
                 break;
@@ -376,7 +384,7 @@ public class TcVisitor: Visitor {
                 node[1].Accept(this);
                 if (node[0].Tag != NodeType.Dot || node[1].Type != CbType.Int || node[0][0].Tag != NodeType.Ident || node[0][1].Tag != NodeType.Ident
                     || ((AST_leaf)node[0][0]).Sval != "cbio" || ((AST_leaf)node[0][1]).Sval != "read")
-                    ReportError(node[0].LineNumber, "Invalid call to method cbio.read(out int val)");
+                    ReportError(node[0].LineNumber, "Invalid read method call");
                 break;
             case NodeType.Add:
                 basicTypeCheck(node, CbType.Int, CbType.Int);
@@ -454,6 +462,9 @@ public class TcVisitor: Visitor {
                         else
                             ReportError(node[0].LineNumber, "Unknown field {0} of struct {1}", rhs, structname);
                     }
+                    // check for Length type
+                    else if (node[0].Type is CbArray && rhs == "Length")
+                        break;
                     else
                         ReportError(node[0].LineNumber, "Unknown usage of dot on type {0}", node[0].Type);
                 }
@@ -476,10 +487,6 @@ public class TcVisitor: Visitor {
                 // read in array size
                 node[1].Accept(this);
 
-                // check for valid array size
-                if (((AST_leaf)node[0]).Ival < 1)
-                    ReportError(node[0].LineNumber, "Array size cannot be negative");
-
                 // declare type
                 node.Type = CbType.Array(lookUpType(node[0]));
 
@@ -489,14 +496,18 @@ public class TcVisitor: Visitor {
 
                 break;
             case NodeType.Index:
+                // read in index
                 node[0].Accept(this);
+                // read in qualifiers
                 node[1].Accept(this);
 
+                // perform error checking
                 node.Type = CbType.Error;
                 if (node[1].Type != CbType.Int && node[1].Type != CbType.Error)
                     ReportError(node[0].LineNumber, "Array index type must be int, not {0}", node[1].Type);
                 else if (!(node[0].Type is CbArray) && node[0].Type != CbType.Error) // TODO : do this without instanceof
                     ReportError(node[0].LineNumber, "Array indexing used on non-array type {0}", node[0].Type);
+                // set type equal to index type
                 else
                     node.Type = ((CbArray)node[0].Type).ElementType;
                 break;
@@ -509,7 +520,6 @@ public class TcVisitor: Visitor {
         switch(node.Tag) {
             case NodeType.Empty:
                 // no type
-                // node.Type = CbType.Void;
                 break;
             case NodeType.Break:
                 // no type
@@ -523,6 +533,7 @@ public class TcVisitor: Visitor {
             case NodeType.Ident:
                 CbType typ = CbType.Null;
                 string str = node.Sval;
+                
                 if (str != "null")
                 {
                     // check symbol table for identifer
@@ -530,8 +541,7 @@ public class TcVisitor: Visitor {
                     if (result != null)
                         typ = result.Type;
                     // if identifier not in symbol table, check in Consts, then if not found report error
-                    else if (!(Consts.TryGetValue(str, out typ)) && str != "write" && str != "read"
-                                && str != "int" && str != "string")
+                    else if (!(Consts.TryGetValue(str, out typ)))
                     {
                         ReportError(node.LineNumber, "Undeclared identifier {0}", str);
                         // add undeclared variable to the symbol table to prevent additional errors
