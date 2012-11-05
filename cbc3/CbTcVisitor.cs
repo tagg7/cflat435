@@ -581,18 +581,20 @@ public class TcVisitor: Visitor {
                         break;
                     }
 
-                    node[0].Accept(this);
+                    CbType typm = CbType.Void;
                     // create new CbMethod
-                    CbType typm = lookUpType(node[0]);
+                    if(ch[0] != null)
+                        typm = lookUpType(ch[0]);
                     CbMethod method = new CbMethod(name, typm);
 
                     // add argument list (full signature) to CbMethod
-                    AST args = ch[3];
+                    AST args = ch[2];
+                    AST temp;
                     argsize = args.NumChildren;
                     for (int j = 0; j < argsize; j++)
                     {
-                        args[j].Accept(this);
-                        method.ArgType.Add(args[j].Type);
+                        temp = args[j];
+                        method.ArgType.Add(lookUpType(temp[0]));
                     }
 
                     Methods.Add(name, method);
