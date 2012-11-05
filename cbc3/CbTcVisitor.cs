@@ -176,13 +176,12 @@ public class TcVisitor: Visitor {
                 }
                 break;
             case NodeType.Return:
-                CbType typ = CbType.Void;
+                node.Type = CbType.Void;
                 if (node.NumChildren > 0)
                 {
                     node[0].Accept(this);
-                    typ = node[0].Type;
+                    node.Type = node[0].Type;
                 }
-                node.Type = typ;
                 break;
             default:
                 throw new Exception("{0} is not a tag compatible with an AST_kary node");
@@ -236,7 +235,7 @@ public class TcVisitor: Visitor {
                 node[2].Accept(this);
                 CbType typact = node[2].Type;
 
-                // look up declared type
+                // look up declared type (can only be int or string)
                 CbType typdec = lookUpIdenType(node[0]);
 
                 if (typdec != CbType.Int && typdec != CbType.String)
@@ -484,19 +483,18 @@ public class TcVisitor: Visitor {
 
                 break;
             case NodeType.Index:
-                // read in index
+                // visit LHS
                 node[0].Accept(this);
-                // read in qualifiers
+                // visit RHS
                 node[1].Accept(this);
 
                 // perform error checking
                 node.Type = CbType.Error;
                 if (node[1].Type != CbType.Int && node[1].Type != CbType.Error)
                     ReportError(node[0].LineNumber, "Array index type must be int, not {0}", node[1].Type);
-                else if (!(node[0].Type is CbArray) && node[0].Type != CbType.Error) // TODO : do this without instanceof
+                else if (!(node[0].Type is CbArray) && node[0].Type != CbType.Error)
                     ReportError(node[0].LineNumber, "Array indexing used on non-array type {0}", node[0].Type);
-                // set type equal to index type
-                else
+                else if (node[0].Type != CbType.Error && node[1].Type != CbType.Error)
                     node.Type = ((CbArray)node[0].Type).ElementType;
                 break;
             default:
@@ -519,10 +517,11 @@ public class TcVisitor: Visitor {
                 node.Type = CbType.String;
                 break;
             case NodeType.Ident:
-                CbType typ = CbType.Null;
+                CbType typ;
                 string str = node.Sval;
-                
-                if (str != "null")
+                if (str == "null")
+                    typ = CbType.Null;
+                else
                 {
                     // check symbol table for identifer
                     SymTabEntry result = localSymbols.Lookup(str);
@@ -531,7 +530,7 @@ public class TcVisitor: Visitor {
                     // if identifier not in symbol table, check in Consts, then if not found report error
                     else if (!(Consts.TryGetValue(str, out typ)))
                     {
-                        ReportError(node.LineNumber, "Undeclared identifier {0}", str);
+                        ReportError(node.LineNumber, "Use of undeclared identifier {0}", str);
                         // add undeclared variable to the symbol table to prevent additional errors
                         localSymbols.Binding(str, node.LineNumber);
                         typ = CbType.Error;
@@ -567,15 +566,6 @@ public class TcVisitor: Visitor {
         method.ArgType.Add(CbType.String);
         writes.Add(method);
         Methods.Add(name, writes);
-
-        // int
-        Consts.Add("int", CbType.Int);
-        // string
-        Consts.Add("string", CbType.String);
-        // null
-        Consts.Add("null", CbType.Null);
-        // Length
-        Consts.Add("Length", CbType.Int);
     }
 
     // Makes two shallow passes over the declarations inside a class to obtain
