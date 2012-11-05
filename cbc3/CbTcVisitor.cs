@@ -290,17 +290,18 @@ public class TcVisitor: Visitor {
                     mname = ((AST_leaf)node[0]).Sval;
 
                 // semantic check for cbio.write
-                if (mname == "cbio.write" && (node[1].Type == CbType.Int || node[1].Type == CbType.String))
+                if (mname == "cbio.write")
                 {
-                    ReportError(node[0].LineNumber, "Invalid input type {0} for cbio.write", node[1].Type);
-                    break;
-                } 
-                // check for valid method call
-                else if (!Methods.ContainsKey(mname))
-                {
-                    ReportError(node[0].LineNumber, "Undeclared method call {0}", mname);
+                    if((node[1].Type == CbType.Int || node[1].Type == CbType.String))
+                        ReportError(node[0].LineNumber, "Invalid input type {0} for cbio.write", node[1].Type);
+                    if(node[1].NumChildren != 1)
+                        ReportError(node[1].LineNumber, "Invalid number of parameters for cbio.write");
+
                     break;
                 }
+                // check for valid method call
+                else if (!Methods.ContainsKey(mname))
+                    ReportError(node[0].LineNumber, "Undeclared method call {0}", mname);
                 else
                 {
                     // get method from dictionary
@@ -323,7 +324,7 @@ public class TcVisitor: Visitor {
                             }
                         }
                     }
-                        
+
                 }
 
                 break;
