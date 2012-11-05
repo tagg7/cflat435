@@ -476,18 +476,23 @@ public class TcVisitor: Visitor {
 
                 break;
             case NodeType.NewArray:
-                // read in array type
-                node[0].Accept(this);
-                // read in array size
+                // visit array size
                 node[1].Accept(this);
 
-                // declare type
-                node.Type = CbType.Array(lookUpType(node[0]));
+                node.Type = CbType.Error;
+                if (node[1].Type != CbType.Int && node[1].Type != CbType.Error)
+                {
+                    ReportError(node[1].LineNumber, "Array size must be of type int");
+                }
+                else if (node[1].Type != CbType.Error)
+                {
+                    // declare type
+                    node.Type = CbType.Array(lookUpType(node[0]));
 
-                // check for invalid type
-                if (node.Type == CbType.Error)
-                    ReportError(node[0].LineNumber, "Invalid array type {0}", ((AST_leaf)node[0]).Sval);
-
+                    // check for invalid type
+                    if (node.Type == CbType.Error)
+                        ReportError(node[0].LineNumber, "Invalid array type {0}", ((AST_leaf)node[0]).Sval);
+                 }
                 break;
             case NodeType.Index:
                 // visit LHS
