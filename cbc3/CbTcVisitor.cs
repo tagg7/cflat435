@@ -175,6 +175,7 @@ public class TcVisitor: Visitor {
                     node[0].Accept(this);
                     typ = node[0].Type;
                 }
+                node.Type = typ;
                 break;
             default:
                 throw new Exception("{0} is not a tag compatible with an AST_kary node");
@@ -212,7 +213,6 @@ public class TcVisitor: Visitor {
                 // Nothing to do ... this has been handled by the prePass method below
                 break;
             case NodeType.Method:
-                // TODO : FIX ME!
                 // We have to typecheck the method
                 localSymbols.Empty();  // clear the symbol table
                 string name = ((AST_leaf)(node[1])).Sval;
