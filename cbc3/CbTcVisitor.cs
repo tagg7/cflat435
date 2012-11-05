@@ -359,12 +359,9 @@ public class TcVisitor: Visitor {
                 // The two children should be the method 'cbio.read' and the variable v
                 node[0].Accept(this);
                 node[1].Accept(this);
-
-                if (((AST_leaf)node[0]).Sval != "cbio.read")
-                    ReportError(node[0].LineNumber, "Invalid call to method using keyword out");
-                else if (node[1].Type != CbType.Int)
+                if (node[0].Tag != NodeType.Dot || node[1].Type != CbType.Int || node[0][0].Tag != NodeType.Ident || node[0][1].Tag != NodeType.Ident
+                    || ((AST_leaf)node[0][0]).Sval != "cbio" || ((AST_leaf)node[0][1]).Sval != "read")
                     ReportError(node[0].LineNumber, "Invalid call to method cbio.read(out int val)");
-
                 break;
             case NodeType.Add:
                 basicTypeCheck(node, CbType.Int, CbType.Int);
