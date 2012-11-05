@@ -71,7 +71,7 @@ public class TcVisitor: Visitor {
             if (node[i].Type != CbType.Error && node[i].Type != tleaf)
             {
                 if (children > 1)
-                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types '{1}' and '{2}'", node.Tag, node[0].Type, node[1].Type);
+                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types '{1}' and {2}", node.Tag, node[0].Type, node[1].Type);
                 else
                     ReportError(node[i].LineNumber, "Cannot perform {0} operation on type {1}", node.Tag, node[0].Type);
                 node.Type = CbType.Error;
@@ -188,13 +188,18 @@ public class TcVisitor: Visitor {
         }
     }
 
-    public CbMethod getMethod(String mname, AST args)
+    public CbMethod getMethod(String mname, AST args, bool lookup)
     {
         // get method from dictionary
         List<CbMethod> methods;
 
+
         if (mname == null || !(Methods.TryGetValue(mname, out methods)))
+        {
+            if (lookup)
+                ReportError(args.LineNumber, "Invalid method: '{0}'", mname);
             return null;
+        }
 
         int desiredArgs = args.NumChildren;
         foreach (CbMethod method in methods) // compare parameters
@@ -216,6 +221,10 @@ public class TcVisitor: Visitor {
                     return method;
             }
         }
+
+        if (lookup)
+            ReportError(args.LineNumber, "Invalid parameter type(s) for method {0}", mname);
+
         return null;
     }
 
@@ -255,7 +264,7 @@ public class TcVisitor: Visitor {
                 node[2].Accept(this);
                 string name = ((AST_leaf)(node[1])).Sval;
 
-                CbMethod meth = getMethod(name, node[2]);
+                CbMethod meth = getMethod(name, node[2], false);
                 if (meth == null)
                 {
                     ReportError(node[0].LineNumber, "Unknown method encountered: ({0})", name);
@@ -337,10 +346,8 @@ public class TcVisitor: Visitor {
                 if (mname != null && node[1].Type != CbType.Error)
                 {
                     // check for valid method call
-                    CbMethod method = getMethod(mname, node[1]);
-                    if (method == null)
-                        ReportError(node[0].LineNumber, "Method not found: '{0}'", mname);
-                    else
+                    CbMethod method = getMethod(mname, node[1], true);
+                    if (method != null)
                         node.Type = method.ResultType;
                 }
                 break;
@@ -643,7 +650,7 @@ public class TcVisitor: Visitor {
                     name = ((AST_leaf)(ch[1])).Sval;
                     ch[2].Accept(this);
                     // check for duplicate method
-                    CbMethod existing = getMethod(name, ch[2]);
+                    CbMethod existing = getMethod(name, ch[2], false);
                     if (existing != null)
                     {
                         ReportError(ch[0].LineNumber, "Duplicate declaration of method {0}", name);
