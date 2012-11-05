@@ -71,9 +71,9 @@ public class TcVisitor: Visitor {
             if (node[i].Type != CbType.Error && node[i].Type != tleaf)
             {
                 if (children > 1)
-                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types '{1}' and {2}", node.Tag, node[0].Type, node[1].Type);
+                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types '{1}' and '{2}'", node.Tag, node[0].Type, node[1].Type);
                 else
-                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on type {1}", node.Tag, node[0].Type);
+                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on type '{1}'", node.Tag, node[0].Type);
                 node.Type = CbType.Error;
                 return;
             }
@@ -131,7 +131,7 @@ public class TcVisitor: Visitor {
                 for (int i = 0; i < children; i++)
                 {
                     if (((AST_leaf)node[i]).Sval != "CbRuntime")
-                        ReportError(node[0].LineNumber, "The only using identifier allowed is CbRuntime");
+                        ReportError(node[0].LineNumber, "Invalid using identifier: '{0}' (only allowed identifier is CbRuntime)", ((AST_leaf)node[i]).Sval);
                 }
                 break;
             case NodeType.DeclList:
@@ -193,7 +193,6 @@ public class TcVisitor: Visitor {
         // get method from dictionary
         List<CbMethod> methods;
 
-
         if (mname == null || !(Methods.TryGetValue(mname, out methods)))
         {
             if (lookup)
@@ -223,7 +222,7 @@ public class TcVisitor: Visitor {
         }
 
         if (lookup)
-            ReportError(args.LineNumber, "Invalid parameter type(s) for method {0}", mname);
+            ReportError(args.LineNumber, "Invalid method or method parameter(s): '{0}'", mname);
 
         return null;
     }
@@ -531,6 +530,7 @@ public class TcVisitor: Visitor {
             case NodeType.Ident:
                 CbType typ;
                 string str = node.Sval;
+                // check for null value
                 if (str == "null")
                     typ = CbType.Null;
                 else
@@ -542,7 +542,7 @@ public class TcVisitor: Visitor {
                     // if identifier not in symbol table, check in Consts, then if not found report error
                     else if (!(Consts.TryGetValue(str, out typ)))
                     {
-                        ReportError(node.LineNumber, "Use of undeclared identifier {0}", str);
+                        ReportError(node.LineNumber, "Use of undeclared identifier: '{0}'", str);
                         // add undeclared variable to the symbol table to prevent additional errors
                         localSymbols.Binding(str, node.LineNumber);
                         typ = CbType.Error;
