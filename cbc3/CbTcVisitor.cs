@@ -292,13 +292,16 @@ public class TcVisitor: Visitor {
                 // semantic check for cbio.write
                 if (mname == "cbio.write")
                 {
-                    if((node[1].Type == CbType.Int || node[1].Type == CbType.String))
+                    if ((node[1].Type == CbType.Int || node[1].Type == CbType.String))
                         ReportError(node[0].LineNumber, "Invalid input type {0} for cbio.write", node[1].Type);
-                    if(node[1].NumChildren != 1)
+                    if (node[1].NumChildren != 1)
                         ReportError(node[1].LineNumber, "Invalid number of parameters for cbio.write");
 
                     break;
                 }
+                // check for invalid cbio.read call
+                else if (mname == "cbio.read")
+                    ReportError(node[0].LineNumber, "Invalid call to cbio.read");
                 // check for valid method call
                 else if (!Methods.ContainsKey(mname))
                     ReportError(node[0].LineNumber, "Undeclared method call {0}", mname);
@@ -445,10 +448,6 @@ public class TcVisitor: Visitor {
                 // read in array size
                 node[1].Accept(this);
 
-                // check for valid array size
-                if (((AST_leaf)node[0]).Ival < 1)
-                    ReportError(node[0].LineNumber, "Array size cannot be negative");
-
                 // declare type
                 node.Type = CbType.Array(lookUpType(node[0]));
 
@@ -500,7 +499,7 @@ public class TcVisitor: Visitor {
                         typ = result.Type;
                     // if identifier not in symbol table, check in Consts, then if not found report error
                     else if (!(Consts.TryGetValue(str, out typ)) && str != "write" && str != "read"
-                                && str != "int" && str != "string")
+                                && str != "int" && str != "string" && str != "Length" && str != "cbio")
                     {
                         ReportError(node.LineNumber, "Undeclared identifier {0}", str);
                         // add undeclared variable to the symbol table to prevent additional errors
