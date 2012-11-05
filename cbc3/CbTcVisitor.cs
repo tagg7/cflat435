@@ -429,30 +429,21 @@ public class TcVisitor: Visitor {
                 basicTypeCheck(node, CbType.Int, CbType.Int);
                 break;
             case NodeType.Dot:
-                // read in "string".val (null if right side is not "Length")
+                // visit LHS
                 node[0].Accept(this);
                 string rhs = ((AST_leaf)node[1]).Sval;
-                //ReportInformation(node[0].LineNumber, "  dot RHS = {0}", rhs);
 
                 node.Type = CbType.Error;
-                if (node[0].Type == CbType.String) // semantic check for string.Length
+                if (node[0].Type == CbType.String || node[0].Type is CbArray) // semantic check for string.Length or arr.Length
                 {
                     if (rhs == "Length")
                         node.Type = CbType.Int;
                     else
-                        ReportError(node[0].LineNumber, "Invalid string.Length usage");
+                        ReportError(node[0].LineNumber, "Invalid usage of .Length");
                 }
-                else if (node[0].Type != CbType.String && node[0].Type != CbType.Error)
+                else if (node[0].Type != CbType.Error)
                 {
-                    // read in string."val"
-                    //node[1].Accept(this);
-                    if (node[0].Type is CbMethod) // TODO : fix
-                    {
-                        // cbio.write
-                        // cbio.read
-                        // do nothing
-                    }
-                    else if (node[0].Type is CbStruct)
+                    if (node[0].Type is CbStruct)
                     {
                         string structname = ((CbStruct)node[0].Type).Name;
                         IDictionary<string, CbField> fields = ((CbStruct)node[0].Type).Fields;
@@ -462,9 +453,6 @@ public class TcVisitor: Visitor {
                         else
                             ReportError(node[0].LineNumber, "Unknown field {0} of struct {1}", rhs, structname);
                     }
-                    // check for Length type
-                    else if (node[0].Type is CbArray && rhs == "Length")
-                        break;
                     else
                         ReportError(node[0].LineNumber, "Unknown usage of dot on type {0}", node[0].Type);
                 }
