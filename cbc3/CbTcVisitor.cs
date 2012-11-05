@@ -68,12 +68,15 @@ public class TcVisitor: Visitor {
         node.Type = CbType.Error;
         bool err = false;
         bool suppress = false;
-        CbType typ = CbType.Error;
+        CbType typ = null;
 
         // determine if type of first child matches accepted list
         node[0].Accept(this);
         if (node[0].Type == CbType.Error)
+        {
+            typ = CbType.Error;
             suppress = true;
+        }
         else if (arrays && node[0].Type is CbArray || structs && node[0].Type is CbStruct)
             typ = node[0].Type;
         else
