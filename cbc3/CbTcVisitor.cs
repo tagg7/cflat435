@@ -414,17 +414,38 @@ public class TcVisitor: Visitor {
             case NodeType.Dot:
                 // read in "string".val (null if right side is not "Length")
                 node[0].Accept(this);
-                // read in read in string."val"
-                node[1].Accept(this);
-
-                // semantic check for string.Length
-                if (node[0].Type == CbType.String && ((AST_leaf)node[1]).Sval != "Length")
-                    ReportError(node[0].LineNumber, "Invalid string length usage");
-
-                // TODO : check that right hand side is valid in the current context (cbio.read, cbio.write, specific structs?)
-
-                node.Type = CbType.Int; // correct type declaration?
-
+                node.Type = CbType.Error;
+                if (node[0].Type == CbType.String) // semantic check for string.Length
+                {
+                    if (((AST_leaf)node[1]).Sval == "Length")
+                        node.Type = CbType.Int;
+                    else
+                        ReportError(node[0].LineNumber, "Invalid string.Length usage");
+                }
+                else if (node[0].Type != CbType.String && node[0].Type != CbType.Error)
+                {
+                    // read in string."val"
+                    //node[1].Accept(this);
+                    if (node[0].Type is CbMethod) // TODO : fix
+                    {
+                        // cbio.write
+                        // cbio.read
+                        // do nothing
+                    }
+                    else if (node[0].Type is CbStruct)
+                    {
+                        string fieldname = ((AST_leaf)node[1]).Sval;
+                        string structname = ((CbStruct)node[0].Type).Name;
+                        IDictionary<string, CbField> fields = ((CbStruct)node[0].Type).Fields;
+                        CbField field;
+                        if (fields.TryGetValue(fieldname, out field))
+                            node.Type = field.Type;
+                        else
+                            ReportError(node[0].LineNumber, "Unknown field {0} of struct {1}", fieldname, structname);
+                    }
+                    else
+                        ReportError(node[0].LineNumber, "Unknown usage of dot on type {0}", node[0].Type);
+                }
                 break;
             case NodeType.NewStruct:
                 // read in struct type
