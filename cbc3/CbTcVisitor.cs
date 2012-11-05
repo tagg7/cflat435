@@ -452,15 +452,11 @@ public class TcVisitor: Visitor {
                 node[0].Accept(this);
 
                 // declare type
-                if (((AST_leaf)node[0]).Sval == "string")
-                    node.Type = CbType.Array(CbType.String);
-                else if (((AST_leaf)node[0]).Sval == "int")
-                    node.Type = CbType.Array(CbType.Int);
-                else
-                {
+                node.Type = lookUpType(node[0]);
+
+                // check for invalid type
+                if(node.Type == CbType.Error)
                     ReportError(node[0].LineNumber, "Invalid type {0}", ((AST_leaf)node[0]).Sval);
-                    node.Type = CbType.Array(CbType.Error);     // is this the correct type for an error?
-                }
 
                 break;
             case NodeType.NewArray:
@@ -473,16 +469,12 @@ public class TcVisitor: Visitor {
                 if (((AST_leaf)node[0]).Ival < 1)
                     ReportError(node[0].LineNumber, "Array size cannot be negative");
 
-                // declare node type
-                if (((AST_leaf)node[0]).Sval == "string") 
-                    node.Type = CbType.Array(CbType.String);
-                else if (((AST_leaf)node[0]).Sval == "int")
-                    node.Type = CbType.Array(CbType.Int);
-                else
-                {
+                // declare type
+                node.Type = CbType.Array(lookUpType(node[0]));
+
+                // check for invalid type
+                if (node.Type == CbType.Error)
                     ReportError(node[0].LineNumber, "Invalid array type {0}", ((AST_leaf)node[0]).Sval);
-                    node.Type = CbType.Array(CbType.Error);     // is this the correct type for an error?
-                }
 
                 break;
             case NodeType.Index:
@@ -519,17 +511,20 @@ public class TcVisitor: Visitor {
                 break;
             case NodeType.Ident:
                 CbType typ = CbType.Null;
-                if (node.Sval != "null")
+                string str = node.Sval;
+                if (str != "null")
                 {
                     // check symbol table for identifer
-                    SymTabEntry result = localSymbols.Lookup(node.Sval);
+                    SymTabEntry result = localSymbols.Lookup(str);
                     if (result != null)
                         typ = result.Type;
-                    else if (!(Consts.TryGetValue(node.Sval, out typ))) // if identifier not in symbol table, check in Consts, then if not found report error
+                    // if identifier not in symbol table, check in Consts, then if not found report error
+                    else if (!(Consts.TryGetValue(str, out typ)) && str != "write" && str != "read"
+                                && str != "int" && str != "string")
                     {
-                        ReportError(node.LineNumber, "Undeclared identifier {0}", node.Sval);
+                        ReportError(node.LineNumber, "Undeclared identifier {0}", str);
                         // add undeclared variable to the symbol table to prevent additional errors
-                        localSymbols.Binding(node.Sval, node.LineNumber);
+                        localSymbols.Binding(str, node.LineNumber);
                         typ = CbType.Error;
                     }
                 }
