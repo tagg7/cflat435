@@ -84,6 +84,14 @@ public class TcVisitor: Visitor {
                 ReportError(node[0].LineNumber, "Cannot perform {0} operation on type '{1}'", node.Tag, node[0].Type);
             return;
         }
+        if (err)
+        {
+            if (children > 1)
+                ReportError(node[0].LineNumber, "Cannot perform {0} operation on types '{1}' and '{2}'", node.Tag, node[0].Type, node[1].Type);
+            else
+                ReportError(node[0].LineNumber, "Cannot perform {0} operation on type '{1}'", node.Tag, node[0].Type);
+            return;
+        }
 
         if(tnode != null)
             node.Type = tnode;
@@ -137,7 +145,7 @@ public class TcVisitor: Visitor {
                 for (int i = 0; i < children; i++)
                 {
                     if (((AST_leaf)node[i]).Sval != "CbRuntime")
-                        ReportError(node[0].LineNumber, "The only using identifier allowed is CbRuntime");
+                        ReportError(node[0].LineNumber, "Invalid using identifier: '{0}' (only allowed identifier is CbRuntime)", ((AST_leaf)node[i]).Sval);
                 }
                 break;
             case NodeType.DeclList:
@@ -147,8 +155,7 @@ public class TcVisitor: Visitor {
                 }
                 break;
             case NodeType.FieldList:
-                // already handled by prePass...?
-                // TODO ?
+                // already handled by prePass
                 break;
             case NodeType.IdList:
                 // already handled in NodeType.LocalDecl
@@ -199,7 +206,6 @@ public class TcVisitor: Visitor {
         // get method from dictionary
         List<CbMethod> methods;
 
-
         if (mname == null || !(Methods.TryGetValue(mname, out methods)))
         {
             if (lookup)
@@ -208,7 +214,8 @@ public class TcVisitor: Visitor {
         }
 
         int desiredArgs = args.NumChildren;
-        foreach (CbMethod method in methods) // compare parameters
+        // compare parameters
+        foreach (CbMethod method in methods)
         {
             int numArgs = method.ArgType.Count;
             if (numArgs != desiredArgs)
@@ -218,6 +225,7 @@ public class TcVisitor: Visitor {
             else
             {
                 bool matches = true;
+                // compare argument types
                 for (int i = 0; i < numArgs; i++)
                 {
                     if (method.ArgType[i] != args[i].Type)
@@ -228,8 +236,9 @@ public class TcVisitor: Visitor {
             }
         }
 
+        // report error if function is called with the lookup flag
         if (lookup)
-            ReportError(args.LineNumber, "Invalid parameter type(s) for method {0}", mname);
+            ReportError(args.LineNumber, "Invalid method or method parameter(s): '{0}'", mname);
 
         return null;
     }
@@ -441,12 +450,13 @@ public class TcVisitor: Visitor {
                 basicTypeCheck(node, CbType.Int, CbType.Int);
                 break;
             case NodeType.Dot:
-                // visit LHS
+                // visit left hand side
                 node[0].Accept(this);
-                string rhs = ((AST_leaf)node[1]).Sval;
 
+                string rhs = ((AST_leaf)node[1]).Sval;
                 node.Type = CbType.Error;
-                if (node[0].Type == CbType.String || node[0].Type is CbArray) // semantic check for string.Length or arr.Length
+                // semantic check for string.Length or arr.Length
+                if (node[0].Type == CbType.String || node[0].Type is CbArray)
                 {
                     if (rhs == "Length")
                         node.Type = CbType.Int;
@@ -457,16 +467,17 @@ public class TcVisitor: Visitor {
                 {
                     if (node[0].Type is CbStruct)
                     {
+                        // check fields of struct
                         string structname = ((CbStruct)node[0].Type).Name;
                         IDictionary<string, CbField> fields = ((CbStruct)node[0].Type).Fields;
                         CbField field;
                         if (fields.TryGetValue(rhs, out field))
                             node.Type = field.Type;
                         else
-                            ReportError(node[0].LineNumber, "Unknown field {0} of struct {1}", rhs, structname);
+                            ReportError(node[0].LineNumber, "Invalid field {0} of struct {1}", rhs, structname);
                     }
                     else
-                        ReportError(node[0].LineNumber, "Unknown usage of dot on type {0}", node[0].Type);
+                        ReportError(node[0].LineNumber, "Invalid usage of dot on type {0}", node[0].Type);
                 }
                 break;
             case NodeType.NewStruct:
@@ -478,6 +489,7 @@ public class TcVisitor: Visitor {
                 node[1].Accept(this);
 
                 node.Type = CbType.Error;
+                // check array type
                 if (node[1].Type != CbType.Int && node[1].Type != CbType.Error)
                 {
                     ReportError(node[1].LineNumber, "Array size must be of type int");
@@ -529,6 +541,7 @@ public class TcVisitor: Visitor {
             case NodeType.Ident:
                 CbType typ;
                 string str = node.Sval;
+                // check for null value
                 if (str == "null")
                     typ = CbType.Null;
                 else
@@ -540,7 +553,7 @@ public class TcVisitor: Visitor {
                     // if identifier not in symbol table, check in Consts, then if not found report error
                     else if (!(Consts.TryGetValue(str, out typ)))
                     {
-                        ReportError(node.LineNumber, "Use of undeclared identifier {0}", str);
+                        ReportError(node.LineNumber, "Use of undeclared identifier: '{0}'", str);
                         // add undeclared variable to the symbol table to prevent additional errors
                         localSymbols.Binding(str, node.LineNumber);
                         typ = CbType.Error;
