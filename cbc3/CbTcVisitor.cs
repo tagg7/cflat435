@@ -65,17 +65,18 @@ public class TcVisitor: Visitor {
     // check if child nodes are equal to "tleaf" value, then set the node type equal to "tnode"
     private void basicTypeCheck( AST_nonleaf node, CbType tleaf, CbType tnode) {
         int children = node.NumChildren;
+        node.Type = CbType.Error;
         bool err = false;
+        bool suppress = false;
         for (int i = 0; i < children; i++)
         {
             node[i].Accept(this);
-            if (node[i].Type != CbType.Error && node[i].Type != tleaf)
-            {
+            if (node[i].Type == CbType.Error)
+                suppress = true;
+            if (node[i].Type != tleaf)
                 err = true;
-                node.Type = CbType.Error;
-            }
         }
-        if (err)
+        if (err && !suppress)
         {
             if (children > 1)
                 ReportError(node[0].LineNumber, "Cannot perform {0} operation on types '{1}' and '{2}'", node.Tag, node[0].Type, node[1].Type);
