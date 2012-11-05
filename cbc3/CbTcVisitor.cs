@@ -281,7 +281,13 @@ public class TcVisitor: Visitor {
                 // check parameters
                 node[1].Accept(this);
 
-                string mname = ((AST_leaf)node[0]).Sval;
+                // find calling method name                
+                string mname;
+                // check for cbio.write
+                if (node[0].Tag == NodeType.Dot)
+                    mname = ((AST_leaf)node[0][0]).Sval + "." + ((AST_leaf)node[0][1]).Sval;
+                else
+                    mname = ((AST_leaf)node[0]).Sval;
 
                 // semantic check for cbio.write
                 if (mname == "cbio.write" && (node[1].Type == CbType.Int || node[1].Type == CbType.String))
