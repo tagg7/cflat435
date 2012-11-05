@@ -465,20 +465,16 @@ public class TcVisitor: Visitor {
 
                 break;
             case NodeType.Index:
-                // read in index
+                node[0].Accept(this);
                 node[1].Accept(this);
 
-                if (node[1].Type == CbType.Int)
-                {
-                    if (((AST_leaf)node[1]).Ival < 0)
-                        ReportError(node[0].LineNumber, "Index reference cannot be negative");
-                }
+                node.Type = CbType.Error;
+                if (node[1].Type != CbType.Int && node[1].Type != CbType.Error)
+                    ReportError(node[0].LineNumber, "Array index type must be int, not {0}", node[1].Type);
+                else if (!(node[0].Type is CbArray) && node[0].Type != CbType.Error) // TODO : do this without instanceof
+                    ReportError(node[0].LineNumber, "Array indexing used on non-array type {0}", node[0].Type);
                 else
-                {
-                    ReportError(node[0].LineNumber, "Invalid index type {0}", node[1].Type);
-                }
-
-                node.Type = CbType.Void; // is this the correct type?
+                    node.Type = ((CbArray)node[0].Type).ElementType;
                 break;
             default:
                 throw new Exception("{0} is not a tag compatible with an AST_nonleaf node");
