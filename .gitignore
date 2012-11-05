@@ -167,3 +167,6 @@ pip-log.txt
 ## Custom
 #############
 CbLexer.lst
+CbLexer.cs
+CbParser.cs
+cbc.exe

@@ -175,7 +175,6 @@ public class TcVisitor: Visitor {
                     node[0].Accept(this);
                     typ = node[0].Type;
                 }
-                // TODO : semantic check to verify this matches method return type
                 break;
             default:
                 throw new Exception("{0} is not a tag compatible with an AST_kary node");
@@ -238,8 +237,8 @@ public class TcVisitor: Visitor {
                     // check that return statements match return type of method
                     for (int i = 0; i < block.NumChildren; i++)
                     {
-                        if (block[i].Tag == NodeType.Return)
-                            ; // TODO : continue this part
+                        if (block[i].Tag == NodeType.Return && block[i].Type != rettyp)
+                            ReportError(node[0].LineNumber, "Return statement type ({0}) doesn't match method return type ({1})", block[i].Type, rettyp);
                     }
                 }
                 break;
