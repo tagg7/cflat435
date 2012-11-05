@@ -65,18 +65,23 @@ public class TcVisitor: Visitor {
     // check if child nodes are equal to "tleaf" value, then set the node type equal to "tnode"
     private void basicTypeCheck( AST_nonleaf node, CbType tleaf, CbType tnode) {
         int children = node.NumChildren;
+        bool err = false;
         for (int i = 0; i < children; i++)
         {
             node[i].Accept(this);
             if (node[i].Type != CbType.Error && node[i].Type != tleaf)
             {
-                if (children > 1)
-                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on types '{1}' and {2}", node.Tag, node[0].Type, node[1].Type);
-                else
-                    ReportError(node[i].LineNumber, "Cannot perform {0} operation on type {1}", node.Tag, node[0].Type);
+                err = true;
                 node.Type = CbType.Error;
-                return;
             }
+        }
+        if (err)
+        {
+            if (children > 1)
+                ReportError(node[0].LineNumber, "Cannot perform {0} operation on types '{1}' and '{2}'", node.Tag, node[0].Type, node[1].Type);
+            else
+                ReportError(node[0].LineNumber, "Cannot perform {0} operation on type '{1}'", node.Tag, node[0].Type);
+            return;
         }
 
         if(tnode != null)
@@ -286,7 +291,7 @@ public class TcVisitor: Visitor {
                     for (int i = 0; i < block.NumChildren; i++)
                     {
                         if (block[i].Tag == NodeType.Return && block[i].Type != rettyp)
-                            ReportError(node[0].LineNumber, "Return statement type ({0}) doesn't match method return type ({1})", block[i].Type, rettyp);
+                            ReportError(block[i].LineNumber, "Return statement type ({0}) doesn't match method return type ({1})", block[i].Type, rettyp);
                     }
                 }
                 break;
@@ -464,16 +469,8 @@ public class TcVisitor: Visitor {
                 }
                 break;
             case NodeType.NewStruct:
-                // read in struct type
-                node[0].Accept(this);
-
-                // declare type
+                // look up type
                 node.Type = lookUpType(node[0]);
-
-                // check for invalid type
-                if(node.Type == CbType.Error)
-                    ReportError(node[0].LineNumber, "Invalid type {0}", ((AST_leaf)node[0]).Sval);
-
                 break;
             case NodeType.NewArray:
                 // visit array size
