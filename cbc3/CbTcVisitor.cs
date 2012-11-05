@@ -21,7 +21,7 @@ public class TcVisitor: Visitor {
     public int NumWarnings { get; private set; }
 
     // all methods declared in the CFlat program (which is a single class)
-    public IDictionary<string,CbMethod> Methods {get; private set;}
+    public IDictionary<string,List<CbMethod>> Methods {get; private set;}
 
     // all structs declared in the CFlat program
     public IDictionary<string,CbStruct> Structs {get; private set;}    
@@ -36,7 +36,7 @@ public class TcVisitor: Visitor {
 	public TcVisitor() {
 		NumErrors   = 0;
 		NumWarnings = 0;
-		Methods = new Dictionary<string,CbMethod>();
+		Methods = new Dictionary<string,List<CbMethod>>();
 		Structs = new Dictionary<string,CbStruct>();
 		Consts  = new Dictionary<string,CbType>();
 		localSymbols = new SymTab();
@@ -148,8 +148,8 @@ public class TcVisitor: Visitor {
                 // already handled in NodeType.LocalDecl
                 break;
             case NodeType.Formals:
-                // already handled in NodeType.Method
-                // already handled in NodeType.Call
+                for (int i = 0; i < children; i++)
+                    node[i].Accept(this);
                 break;
             case NodeType.Block:
                 localSymbols.Enter();
@@ -160,13 +160,14 @@ public class TcVisitor: Visitor {
                 localSymbols.Exit();
                 break;
             case NodeType.Actuals:
-                // accept all parameters
+                node.Type = CbType.Void;
+                // visit all parameters
                 for (int i = 0; i < children; i++)
                 {
                     node[i].Accept(this);
-                }          
-
-                // already handled by ??
+                    if (node[i].Type == CbType.Error)
+                        node.Type = CbType.Error;
+                }
                 break;
             case NodeType.Return:
                 CbType typ = CbType.Void;
@@ -180,6 +181,37 @@ public class TcVisitor: Visitor {
             default:
                 throw new Exception("{0} is not a tag compatible with an AST_kary node");
         }
+    }
+
+    public CbMethod getMethod(String mname, AST args)
+    {
+        // get method from dictionary
+        List<CbMethod> methods;
+
+        if (mname == null || !(Methods.TryGetValue(mname, out methods)))
+            return null;
+
+        int desiredArgs = args.NumChildren;
+        foreach (CbMethod method in methods) // compare parameters
+        {
+            int numArgs = method.ArgType.Count;
+            if (numArgs != desiredArgs)
+            {
+                continue;
+            }
+            else
+            {
+                bool matches = true;
+                for (int i = 0; i < numArgs; i++)
+                {
+                    if (method.ArgType[i] != args[i].Type)
+                        matches = false;
+                }
+                if (matches)
+                    return method;
+            }
+        }
+        return null;
     }
 
 	public override void Visit( AST_nonleaf node ) {
@@ -215,9 +247,11 @@ public class TcVisitor: Visitor {
             case NodeType.Method:
                 // We have to typecheck the method
                 localSymbols.Empty();  // clear the symbol table
+                node[2].Accept(this);
                 string name = ((AST_leaf)(node[1])).Sval;
-                CbMethod meth;
-                if (!Methods.TryGetValue(name, out meth))
+
+                CbMethod meth = getMethod(name, node[2]);
+                if (meth == null)
                 {
                     ReportError(node[0].LineNumber, "Unknown method encountered: ({0})", name);
                 }
@@ -246,7 +280,8 @@ public class TcVisitor: Visitor {
                 // Nothing to do ... this has been handled by the prePass method below
                 break;
             case NodeType.Formal:
-                // Nothing to do ... this has been handled by the prePass method below
+                node.Type = lookUpType(node[0]);
+                // Nothing else to do ... this has been handled by the prePass method below
                 break;
             case NodeType.Array:
                 node[0].Accept(this);
@@ -258,7 +293,7 @@ public class TcVisitor: Visitor {
                 for (int i = 0; i < idList.NumChildren; i++)
                 {
                     // check for duplicates
-                    if (localSymbols.Lookup(((AST_leaf)idList[i]).Sval))
+                    if (localSymbols.Lookup(((AST_leaf)idList[i]).Sval) != null)
                         ReportError(node[0].LineNumber, "Duplicate variable declaration: {0}", ((AST_leaf)idList[i]).Sval);
                     else
                         localSymbols.Binding(((AST_leaf)idList[i]).Sval, node.LineNumber).Type = typ;
@@ -277,62 +312,32 @@ public class TcVisitor: Visitor {
                 node.Type = node[0].Type;
                 break;
             case NodeType.Call:
-                // check calling method name
-                node[0].Accept(this);
+                node.Type = CbType.Error;
                 // check parameters
                 node[1].Accept(this);
 
                 // find calling method name                
-                string mname;
+                string mname = null;
                 // check for cbio.write
                 if (node[0].Tag == NodeType.Dot)
-                    mname = ((AST_leaf)node[0][0]).Sval + "." + ((AST_leaf)node[0][1]).Sval;
+                {
+                    if (node[0][0].Tag != NodeType.Ident || node[0][1].Tag != NodeType.Ident)
+                        ReportError(node[0].LineNumber, "Invalid method call");
+                    else
+                        mname = ((AST_leaf)node[0][0]).Sval + "." + ((AST_leaf)node[0][1]).Sval;
+                }
                 else
                     mname = ((AST_leaf)node[0]).Sval;
 
-                Node.Type = CbType.Void; 
-
-                // semantic check for cbio.write
-                if (mname == "cbio.write")
+                if (mname != null && node[1].Type != CbType.Error)
                 {
-                    if ((node[1].Type == CbType.Int || node[1].Type == CbType.String))
-                        ReportError(node[0].LineNumber, "Invalid input type {0} for cbio.write", node[1].Type);
-                    if (node[1].NumChildren != 1)
-                        ReportError(node[1].LineNumber, "Invalid number of parameters for cbio.write");
-                    break;
+                    // check for valid method call
+                    CbMethod method = getMethod(mname, node[1]);
+                    if (method == null)
+                        ReportError(node[0].LineNumber, "Method not found: '{0}'", mname);
+                    else
+                        node.Type = method.ResultType;
                 }
-                // check for invalid cbio.read call
-                else if (mname == "cbio.read")
-                    ReportError(node[0].LineNumber, "Invalid call to cbio.read");
-                // check for valid method call
-                else if (!Methods.ContainsKey(mname))
-                    ReportError(node[0].LineNumber, "Undeclared method call {0}", mname);
-                else
-                {
-                    // get method from dictionary
-                    CbMethod method;
-                    Methods.TryGetValue(mname, out method);
-                    AST args = node[1];
-
-                    // compare number of parameters
-                    int argnum = method.ArgType.Count;
-                    if (args.NumChildren != argnum)
-                        ReportError(node[1].LineNumber, "Invalid number of parameters for method {0}", mname);
-                    else if (argnum != 0)
-                    {
-                        // iterate through parameters and perform type checking
-                        for (int i = 0; i < argnum; i++)
-                        {
-                            if (args[i].Type != method.ArgType[i])
-                            {
-                                ReportError(node[1].LineNumber, "Invalid parameter type {0}; expected type {1}", args[i].Type, method.ArgType[i]);
-                            }
-                        }
-                    }
-
-                    Node.Type = method.ResultType;
-                }
-
                 break;
             case NodeType.PlusPlus:
                 basicTypeCheck(node, CbType.Int, null);
@@ -368,9 +373,8 @@ public class TcVisitor: Visitor {
                 // no type declaration
                 break;
             case NodeType.Read:
-                // TODO : check if this is right
                 // The two children should be the method 'cbio.read' and the variable v
-                node[0].Accept(this);
+                // don't visit LHS, just check that call is to cbio.read and type of parameter is int
                 node[1].Accept(this);
                 if (node[0].Tag != NodeType.Dot || node[1].Type != CbType.Int || node[0][0].Tag != NodeType.Ident || node[0][1].Tag != NodeType.Ident
                     || ((AST_leaf)node[0][0]).Sval != "cbio" || ((AST_leaf)node[0][1]).Sval != "read")
@@ -421,17 +425,40 @@ public class TcVisitor: Visitor {
             case NodeType.Dot:
                 // read in "string".val (null if right side is not "Length")
                 node[0].Accept(this);
-                // read in read in string."val"
-                node[1].Accept(this);
+                string rhs = ((AST_leaf)node[1]).Sval;
+                //ReportInformation(node[0].LineNumber, "  dot RHS = {0}", rhs);
 
-                // semantic check for string.Length
-                if (node[0].Type == CbType.String && ((AST_leaf)node[1]).Sval != "Length")
-                    ReportError(node[0].LineNumber, "Invalid string length usage");
-
-                // TODO : check that right hand side is valid in the current context (cbio.read, cbio.write, specific structs?)
-
-                node.Type = CbType.Int; // correct type declaration?
-
+                node.Type = CbType.Error;
+                if (node[0].Type == CbType.String) // semantic check for string.Length
+                {
+                    if (rhs == "Length")
+                        node.Type = CbType.Int;
+                    else
+                        ReportError(node[0].LineNumber, "Invalid string.Length usage");
+                }
+                else if (node[0].Type != CbType.String && node[0].Type != CbType.Error)
+                {
+                    // read in string."val"
+                    //node[1].Accept(this);
+                    if (node[0].Type is CbMethod) // TODO : fix
+                    {
+                        // cbio.write
+                        // cbio.read
+                        // do nothing
+                    }
+                    else if (node[0].Type is CbStruct)
+                    {
+                        string structname = ((CbStruct)node[0].Type).Name;
+                        IDictionary<string, CbField> fields = ((CbStruct)node[0].Type).Fields;
+                        CbField field;
+                        if (fields.TryGetValue(rhs, out field))
+                            node.Type = field.Type;
+                        else
+                            ReportError(node[0].LineNumber, "Unknown field {0} of struct {1}", rhs, structname);
+                    }
+                    else
+                        ReportError(node[0].LineNumber, "Unknown usage of dot on type {0}", node[0].Type);
+                }
                 break;
             case NodeType.NewStruct:
                 // read in struct type
@@ -518,10 +545,45 @@ public class TcVisitor: Visitor {
         }
     }
 
+    // adds all predeclared identifiers and methods
+    private void addPredeclared()
+    {
+        // cbio
+        // void read( out int val )
+        string name = "cbio.read";
+        CbType typm = CbType.Void;
+        CbMethod method = new CbMethod(name, typm);
+        method.ArgType.Add(CbType.Int);
+        List<CbMethod> read = new List<CbMethod>();
+        read.Add(method);
+        // void write( int val )
+        name = "cbio.write";
+        method = new CbMethod(name, typm);
+        method.ArgType.Add(CbType.Int);
+        List<CbMethod> writes = new List<CbMethod>();
+        writes.Add(method);
+        // void write( string val )
+        method = new CbMethod(name, typm);
+        method.ArgType.Add(CbType.String);
+        writes.Add(method);
+        Methods.Add(name, writes);
+
+        // int
+        Consts.Add("int", CbType.Int);
+        // string
+        Consts.Add("string", CbType.String);
+        // null
+        Consts.Add("null", CbType.Null);
+        // Length
+        Consts.Add("Length", CbType.Int);
+    }
+
     // Makes two shallow passes over the declarations inside a class to obtain
     // the names and types of all consts, methods and structs declared at the
     // top level; without this info, typechecking cannot begin.
     private void prePass( AST node ) {
+        addPredeclared();
+
         AST_kary decls = node as AST_kary;
         if (decls == null || decls.Tag != NodeType.DeclList)
             throw new Exception("Bad argument passed to prePass");
@@ -537,7 +599,7 @@ public class TcVisitor: Visitor {
                 ReportError(ch[0].LineNumber, "Duplicate declaration of struct {0}", name);
             else
                 Structs.Add(name, new CbStruct(name));
-        }   
+        }
         // now make a second pass over the declarations to
         // 1. add const declarations to the Consts table
         // 2. add method declarations to the Methods table
@@ -589,9 +651,10 @@ public class TcVisitor: Visitor {
                     break;
                 case NodeType.Method:
                     name = ((AST_leaf)(ch[1])).Sval;
-
-                    // check for duplication method
-                    if (Methods.ContainsKey(name))
+                    ch[2].Accept(this);
+                    // check for duplicate method
+                    CbMethod existing = getMethod(name, ch[2]);
+                    if (existing != null)
                     {
                         ReportError(ch[0].LineNumber, "Duplicate declaration of method {0}", name);
                         break;
@@ -605,16 +668,18 @@ public class TcVisitor: Visitor {
 
                     // add argument list (full signature) to CbMethod
                     AST args = ch[2];
-                    AST temp;
-                    argsize = args.NumChildren;
-                    for (int j = 0; j < argsize; j++)
+                    for (int j = 0; j < args.NumChildren; j++)
                     {
-                        temp = args[j];
-                        method.ArgType.Add(lookUpType(temp[0]));
+                        method.ArgType.Add(lookUpType(args[j][0]));
                     }
-
-                    Methods.Add(name, method);
-
+                    // get list of overloaded methods sharing same name
+                    List<CbMethod> methods;
+                    if (!Methods.TryGetValue(name, out methods)) // if none exist create new list
+                        methods = new List<CbMethod>();
+                    // add method to list
+                    methods.Add(method);
+                    // replace old list of methods with this name with new list
+                    Methods[name] = methods;
                     break;
                 default:
                     throw new Exception("Unexpected node type " + ch.Tag);
