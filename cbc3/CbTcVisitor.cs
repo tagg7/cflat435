@@ -63,28 +63,44 @@ public class TcVisitor: Visitor {
 	}
 
     // check if child nodes are equal to "tleaf" value, then set the node type equal to "tnode"
-    private void basicTypeCheck( AST_nonleaf node, CbType tleaf, CbType tnode) {
+    private void basicTypeCheck( AST_nonleaf node, CbType tnode, bool arrays, bool structs, params CbType[] tleaves) {
         int children = node.NumChildren;
         node.Type = CbType.Error;
         bool err = false;
         bool suppress = false;
-        for (int i = 0; i < children; i++)
+        CbType typ = CbType.Error;
+
+        // determine if type of first child matches accepted list
+        node[0].Accept(this);
+        if (node[0].Type == CbType.Error)
+            suppress = true;
+        else if (arrays && node[0].Type is CbArray || structs && node[0].Type is CbStruct)
+            typ = node[0].Type;
+        else
+        {
+            foreach (CbType tleaf in tleaves)
+            {
+                if (node[0].Type == tleaf)
+                {
+                    typ = tleaf;
+                    break;
+                }
+            }
+            if (typ == null)
+                err = true;
+        }
+
+        // determine if types of other children match the first
+        for (int i = 1; i < children; i++)
         {
             node[i].Accept(this);
             if (node[i].Type == CbType.Error)
                 suppress = true;
-            if (node[i].Type != tleaf)
+            if (node[i].Type != typ)
                 err = true;
         }
+
         if (err && !suppress)
-        {
-            if (children > 1)
-                ReportError(node[0].LineNumber, "Cannot perform {0} operation on types '{1}' and '{2}'", node.Tag, node[0].Type, node[1].Type);
-            else
-                ReportError(node[0].LineNumber, "Cannot perform {0} operation on type '{1}'", node.Tag, node[0].Type);
-            return;
-        }
-        if (err)
         {
             if (children > 1)
                 ReportError(node[0].LineNumber, "Cannot perform {0} operation on types '{1}' and '{2}'", node.Tag, node[0].Type, node[1].Type);
@@ -367,18 +383,18 @@ public class TcVisitor: Visitor {
                 }
                 break;
             case NodeType.PlusPlus:
-                basicTypeCheck(node, CbType.Int, null);
+                basicTypeCheck(node, null, false, false, CbType.Int);
                 // no type declaration
                 break;
             case NodeType.MinusMinus:
-                basicTypeCheck(node, CbType.Int, null);
+                basicTypeCheck(node, null, false, false, CbType.Int);
                 // no type declaration
                 break;
             case NodeType.If:
                 // check boolean parameter
                 node[0].Accept(this);
 
-                if(node[0].Type != CbType.Bool)
+                if(node[0].Type != CbType.Bool && node[0].Type != CbType.Error)
                     ReportError(node[0].LineNumber, "Invalid boolean expression for if statement");
 
                 // now check the do statement
@@ -408,46 +424,46 @@ public class TcVisitor: Visitor {
                     ReportError(node[0].LineNumber, "Invalid read method call");
                 break;
             case NodeType.Add:
-                basicTypeCheck(node, CbType.Int, CbType.Int);
+                basicTypeCheck(node, CbType.Int, false, false, CbType.Int);
                 break;
             case NodeType.Sub:
-                basicTypeCheck(node, CbType.Int, CbType.Int);
+                basicTypeCheck(node, CbType.Int, false, false, CbType.Int);
                 break;
             case NodeType.Mul:
-                basicTypeCheck(node, CbType.Int, CbType.Int);
+                basicTypeCheck(node, CbType.Int, false, false, CbType.Int);
                 break;
             case NodeType.Div:
-                basicTypeCheck(node, CbType.Int, CbType.Int);
+                basicTypeCheck(node, CbType.Int, false, false, CbType.Int);
                 break;
             case NodeType.Mod:
-                basicTypeCheck(node, CbType.Int, CbType.Int);
+                basicTypeCheck(node, CbType.Int, false, false, CbType.Int);
                 break;
             case NodeType.And:
-                basicTypeCheck(node, CbType.Bool, CbType.Bool);
+                basicTypeCheck(node, CbType.Bool, false, false, CbType.Bool);
                 break;
             case NodeType.Or:
-                basicTypeCheck(node, CbType.Bool, CbType.Bool);
+                basicTypeCheck(node, CbType.Bool, false, false, CbType.Bool);
                 break;
             case NodeType.Equals:
-                basicTypeCheck(node, CbType.Int, CbType.Bool);
+                basicTypeCheck(node, CbType.Bool, true, true, CbType.Int, CbType.String);
                 break;
             case NodeType.NotEquals:
-                basicTypeCheck(node, CbType.Int, CbType.Bool);
+                basicTypeCheck(node, CbType.Bool, true, true, CbType.Int, CbType.String);
                 break;
             case NodeType.LessThan:
-                basicTypeCheck(node, CbType.Int, CbType.Bool);
+                basicTypeCheck(node, CbType.Bool, false, false, CbType.Int, CbType.String);
                 break;
             case NodeType.GreaterThan:
-                basicTypeCheck(node, CbType.Int, CbType.Bool);
+                basicTypeCheck(node, CbType.Bool, false, false, CbType.Int, CbType.String);
                 break;
             case NodeType.LessOrEqual:
-                basicTypeCheck(node, CbType.Int, CbType.Bool);
+                basicTypeCheck(node, CbType.Bool, false, false, CbType.Int, CbType.String);
                 break;
             case NodeType.GreaterOrEqual:
-                basicTypeCheck(node, CbType.Int, CbType.Bool);
+                basicTypeCheck(node, CbType.Bool, false, false, CbType.Int, CbType.String);
                 break;
             case NodeType.UnaryMinus:
-                basicTypeCheck(node, CbType.Int, CbType.Int);
+                basicTypeCheck(node, CbType.Int, false, false, CbType.Int);
                 break;
             case NodeType.Dot:
                 // visit left hand side
