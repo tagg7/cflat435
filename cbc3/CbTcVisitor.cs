@@ -145,15 +145,11 @@ public class TcVisitor: Visitor {
                 // TODO ?
                 break;
             case NodeType.IdList:
-                // already handled in Node.LocalDecl
+                // already handled in NodeType.LocalDecl
                 break;
             case NodeType.Formals:
-                for (int i = 0; i < children; i++)
-                {
-                    node[i].Accept(this);
-                }
-
-                // already handled in Node.Call
+                // already handled in NodeType.Method
+                // already handled in NodeType.Call
                 break;
             case NodeType.Block:
                 localSymbols.Enter();
@@ -187,6 +183,7 @@ public class TcVisitor: Visitor {
     }
 
 	public override void Visit( AST_nonleaf node ) {
+        int children = node.NumChildren;
         switch(node.Tag) {
             case NodeType.Program:
                 // do a multiple pre-pass over the declarations of structs, methods and consts
@@ -216,11 +213,35 @@ public class TcVisitor: Visitor {
                 // Nothing to do ... this has been handled by the prePass method below
                 break;
             case NodeType.Method:
-                localSymbols.Empty();  // clear the symbol table
                 // TODO : FIX ME!
                 // We have to typecheck the method
-                // 1. initialize the symbol table with the formal parameters
-                // 2. visit the body of the method, type checking it
+                localSymbols.Empty();  // clear the symbol table
+                string name = ((AST_leaf)(node[1])).Sval;
+                CbMethod meth;
+                if (!Methods.TryGetValue(name, out meth))
+                {
+                    ReportError(node[0].LineNumber, "Unknown method encountered: ({0})", name);
+                }
+                else
+                {
+                    // 1. initialize the symbol table with the formal parameters
+                    CbType rettyp = meth.ResultType;
+                    AST formals = node[2];
+                    for (int i = 0; i < formals.NumChildren; i++)
+                    {
+                        SymTabEntry ste = localSymbols.Binding(((AST_leaf)formals[i][1]).Sval, node.LineNumber);
+                        ste.Type = lookUpType(formals[i][0]);
+                    }
+                    // 2. visit the body of the method, type checking it
+                    AST block = node[3];
+                    block.Accept(this);
+                    // check that return statements match return type of method
+                    for (int i = 0; i < block.NumChildren; i++)
+                    {
+                        if (block[i].Tag == NodeType.Return)
+                            ; // TODO : continue this part
+                    }
+                }
                 break;
             case NodeType.FieldDecl:
                 // Nothing to do ... this has been handled by the prePass method below
@@ -232,11 +253,10 @@ public class TcVisitor: Visitor {
                 node[0].Accept(this);
                 break;
             case NodeType.LocalDecl:
-                CbType typ = lookUpIdenType(node[0]);
+                CbType typ = lookUpType(node[0]);
                 // add identifiers to symbol table
                 AST idList = node[1];
-                int children = idList.NumChildren;
-                for (int i = 0; i < children; i++)
+                for (int i = 0; i < idList.NumChildren; i++)
                 {
                     if (localSymbols.Lookup(((AST_leaf)idList[i]).Sval) != null)
                         ReportError(node[0].LineNumber, "Duplicate variable declaration: {0}", ((AST_leaf)idList[i]).Sval);
