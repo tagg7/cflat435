@@ -273,10 +273,20 @@ public class GenCode {
 	void GenConditional( AST n, string TL, string FL ) {
 		switch(n.Tag) {
 		case NodeType.And:
-			notImplemented(n, "GenStatement");
+			string midl = getNewLabel();
+            // check if first condition is true
+            GenConditional(n[0], midl, FL);
+            // if first condition is true, check second condition
+            Asm.AppendLabel(midl);
+            GenConditional(n[1], TL, FL);
 			break;
 		case NodeType.Or:
-			notImplemented(n, "GenStatement");
+			string midl = getNewLabel();
+            // check if first condition is true; if true, go to end
+            GenConditional(n[0], TL, midl);
+            // if first condition is false, check second condition
+            Asm.AppendLabel(midl);
+            GenConditional(n[1], TL, FL);
 			break;
 		case NodeType.Equals:
             // DONE ; NEEDS CHECKING
