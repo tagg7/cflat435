@@ -177,7 +177,8 @@ public class GenCode {
 			break;
 		case NodeType.LocalDecl:
             // DONE
-			break;  // no instructions are generated for local declarations
+            // no instructions are generated for local declarations
+			break;
 		case NodeType.Block:
             // DONE
 			for( int i = 0;  i < n.NumChildren;  i++ )
@@ -278,26 +279,54 @@ public class GenCode {
 			notImplemented(n, "GenStatement");
 			break;
 		case NodeType.Equals:
-			GenExpression(n[0]);
+            // DONE ; NEEDS CHECKING
+            // needs to compare strings?
+			lhs = GenExpression(n[0]);
+            rhs = GenExpression(n[1]);
+            Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
 			Asm.Append("beq", TL);
 			Asm.Append("bl", FL);
             break;
 		case NodeType.NotEquals:
-			GenExpression(n[0]);
+            // DONE ; NEEDS CHECKING
+            // needs to compare strings?
+			lhs = GenExpression(n[0]);
+            rhs = GenExpression(n[1]);
+            Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
 			Asm.Append("bne", TL);
 			Asm.Append("bl", FL);
             break;
 		case NodeType.LessThan:
-			notImplemented(n, "GenStatement");
+            // DONE ; NEEDS CHECKING
+            lhs = GenExpression(n[0]);
+            rhs = GenExpression(n[1]);
+            Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
+            Asm.Append("blt", TL);
+            Asm.Append("bl", FL);
 			break;
 		case NodeType.GreaterThan:
-			notImplemented(n, "GenStatement");
+            // DONE ; NEEDS CHECKING
+            lhs = GenExpression(n[0]);
+            rhs = GenExpression(n[1]);
+            Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
+            Asm.Append("bgt", TL);
+            Asm.Append("bl", FL);
 			break;
 		case NodeType.LessOrEqual:
-			notImplemented(n, "GenStatement");
+            // DONE ; NEEDS CHECKING
+            lhs = GenExpression(n[0]);
+            rhs = GenExpression(n[1]);
+            Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
+            Asm.Append("ble", TL);
+            Asm.Append("bl", FL);
 			break;
 		case NodeType.GreaterOrEqual:
-			notImplemented(n, "GenStatement");
+            // DONE ; NEEDS CHECKING
+            lhs = GenExpression(n[0]);
+            rhs = GenExpression(n[1]);
+            Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
+            Asm.Append("bge", TL);
+            Asm.Append("bl", FL);
 			break;
 		default:
 			throw new Exception("Unexpected tag: " + n.Tag.ToString());
