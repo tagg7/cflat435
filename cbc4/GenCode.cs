@@ -111,7 +111,7 @@ public class GenCode {
 		case NodeType.IntConst:
             // DONE ; NEEDS CHECKING
 			result = getReg();
-			int val = ((AST_leaf)n[0]).Ival;
+			int val = ((AST_leaf)n).Ival;
 			if(255 > val >= 0)
 				Asm.Append("mov", Loc.RegisterName(result), "#" + val.ToString());
 			else if(-255 < val < 0)
@@ -123,7 +123,19 @@ public class GenCode {
             notImplemented(n, "GenExpression");
             break;
 		case NodeType.NewArray:
-			notImplemented(n, "GenExpression");
+            // DONE ; NEEDS CHECKING
+            result = 0;
+            int elem = (int) GenVariable(n[1]);  // i doubt this will work
+            // calculate heap space needed (4 bytes for size of array, and 4 bytes for each element)
+            int space = (elem * 4) + 4;
+            int reg = getReg();
+            Asm.Append("mov", "r0", "#" + space.ToString());
+            // request space from the malloc routine
+            Asm.Append("bl", "cb.Malloc");
+            Asm.Append("mov", Loc.RegisterName(reg), "#" + elem.ToString());
+            // store array size in first word, and advance pointer to first element
+            Asm.Append("str", Loc.RegisterName(reg), "[r0],#4");
+            freeReg(reg);
 			break;
 		default:
 			throw new Exception("Unexpected tag: " + n.Tag.ToString());
@@ -198,7 +210,32 @@ public class GenCode {
 			// should be evaluated in reverse order and pushed onto the stack; then a
 			// bl instruction to the method generated; that is followed by an add immediate
 			// instruction to pop the stack of all the parameters.
-			notImplemented(n, "GenStatement");
+
+            // cbio.Write(x)
+            if (n[0].Tag == NodeType.Dot)
+            {
+                Loc output = GenVariable(n[1]);
+                // print integer
+                if (output.Type == MemType.Byte)
+                {
+                    Asm.Append("ldr", "r0", "=" + (int)output);
+                    Asm.Append("bl", "cb.WriteInt");
+                }
+                // print string
+                else if (output.Type == MemType.Word)
+                {
+                    // FIX ME: code to load string to r0
+                    Asm.Append("bl", "cb.WriteString");
+                }
+            }
+            // regular method call
+            else
+            {
+                // MEGA FIX ME
+                // FIX ME: Actual function name
+                Asm.Append("bl", "FnName");
+            }
+
 			break;
 		case NodeType.Return:
             // DONE ; NEEDS CHECKING
@@ -273,6 +310,7 @@ public class GenCode {
 	void GenConditional( AST n, string TL, string FL ) {
 		switch(n.Tag) {
 		case NodeType.And:
+            // DONE ; NEEDS CHECKING
 			string midl = getNewLabel();
             // check if first condition is true
             GenConditional(n[0], midl, FL);
@@ -281,6 +319,7 @@ public class GenCode {
             GenConditional(n[1], TL, FL);
 			break;
 		case NodeType.Or:
+            // DONE ; NEEDS CHECKING
 			string midl = getNewLabel();
             // check if first condition is true; if true, go to end
             GenConditional(n[0], TL, midl);
