@@ -40,13 +40,19 @@ public class GenCode {
 
 		switch(n.Tag) {
 		case NodeType.Ident:
+			notImplemented(n, "GenStatement");
+			break;
 		case NodeType.Dot:
+			notImplemented(n, "GenStatement");
+			break;
 		case NodeType.Index:
+            // DONE
 			mem = GenVariable(n);
 			result = getReg();
 			Asm.Append("ldr", Loc.RegisterName(result), mem);
 			break;
 		case NodeType.Add:
+            // DONE
 			result = lhs = GenExpression(n[0]);
 			rhs = GenExpression(n[1]);
 			Asm.Append("add", Loc.RegisterName(lhs), Loc.RegisterName(lhs),
@@ -54,15 +60,18 @@ public class GenCode {
 			freeReg(rhs);
 			break;
 		case NodeType.StringConst:
+            // DONE
 			result = getReg();
 			string slab = createStringConstant(((AST_leaf)n).Sval);
-			Asm.Append("ldr", Loc.RegisterName(result), slab);		// how does this work?
+			Asm.Append("ldr", Loc.RegisterName(result), slab);
 			break;
 		case NodeType.UnaryMinus:
+            // DONE ; NEEDS CHECKING
 			result = lhs = GenExpression(n[0]);
 			Asm.Append("mvn", Loc.RegisterName(lhs), Loc.RegisterName(lhs));
 			break;
 		case NodeType.Sub:
+            // DONE ; NEEDS CHECKING
 			result = lhs = GenExpression(n[0]);
 			rhs = GenExpression(n[1]);
 			Asm.Append("sub", Loc.RegisterName(lhs), Loc.RegisterName(lhs),
@@ -70,6 +79,7 @@ public class GenCode {
 			freeReg(rhs);
 			break;
 		case NodeType.Mul:
+            // DONE ; NEEDS CHECKING
 			lhs = GenExpression(n[0]);
 			rhs = GenExpression(n[1]);
 			result = getReg();
@@ -79,6 +89,7 @@ public class GenCode {
 			freeReg(rhs);
 			break;		
 		case NodeType.Div:
+            // DONE ; NEEDS CHECKING
 			result = lhs = GenExpression(n[0]);
 			rhs = GenExpression(n[1]);
 			Asm.Append("mov", "r0", Loc.RegisterName(lhs));
@@ -88,6 +99,7 @@ public class GenCode {
 			freeReg(rhs);
 			break;
 		case NodeType.Mod:
+            // DONE ; NEEDS CHECKING
 			result = lhs = GenExpression(n[0]);
 			rhs = GenExpression(n[1]);
 			Asm.Append("mov", "r0", Loc.RegisterName(lhs));
@@ -97,6 +109,7 @@ public class GenCode {
 			freeReg(rhs);
 			break;
 		case NodeType.IntConst:
+            // DONE ; NEEDS CHECKING
 			result = getReg();
 			int val = ((AST_leaf)n[0]).Ival;
 			if(255 > val >= 0)
@@ -107,6 +120,8 @@ public class GenCode {
 				Asm.Append("ldr", Loc.RegisterName(result), "=" + val.ToString());
 			break;
 		case NodeType.NewStruct:
+            notImplemented(n, "GenExpression");
+            break;
 		case NodeType.NewArray:
 			notImplemented(n, "GenExpression");
 			break;
@@ -132,6 +147,8 @@ public class GenCode {
 			// The right operand must be the name of a field in that struct.
 			// The code should set result to a LocRegOffset instance where
 			// the register comes from n[0] and the offset from n[1].
+			notImplemented(n, "GenStatement");
+			break;
 		case NodeType.Index:
 			// The left operand must be an expression with an array or string type
 			// The right operand must be an int expression to use as an index.
@@ -148,6 +165,7 @@ public class GenCode {
 		Loc variable;
 		switch(n.Tag) {
 		case NodeType.Assign:
+            // DONE
 			Loc lhs = GenVariable(n[0]);  // LHS
 			int reg = GenExpression(n[1]);  // RHS
 			if (lhs.Type == MemType.Byte)
@@ -158,12 +176,15 @@ public class GenCode {
 				throw new Exception("unsupported memory type " + lhs.Type.ToString());
 			break;
 		case NodeType.LocalDecl:
+            // DONE
 			break;  // no instructions are generated for local declarations
 		case NodeType.Block:
+            // DONE
 			for( int i = 0;  i < n.NumChildren;  i++ )
 				GenStatement(n[i]);
 			break;
 		case NodeType.Read:
+            // DONE
 			variable = GenVariable(n[1]);
 			Asm.Append("bl", "cb.ReadInt");
 			Asm.Append("str", Loc.RegisterName(0), variable);
@@ -176,24 +197,69 @@ public class GenCode {
 			// should be evaluated in reverse order and pushed onto the stack; then a
 			// bl instruction to the method generated; that is followed by an add immediate
 			// instruction to pop the stack of all the parameters.
+			notImplemented(n, "GenStatement");
+			break;
 		case NodeType.Return:
-			// A return statement is implemented as a transfer to the label
-			// held in 'returnLabel'.
-			// If a result is being returned, that should first be loaded into r0
+            // DONE ; NEEDS CHECKING
+            // load result into r1 if something is returned
+            if (n[0].Tag != CbType.Empty)
+            {
+                int reg = GenExpression(n[0]);
+                Asm.Append("ldr", Loc.RegisterName(1), Loc.RegisterName(reg));
+            }
+
+            // return statement is a transfer to the label held in 'returnLabel'
+            Asm.Append("bl", returnLabel);            
+            break;
 		case NodeType.PlusPlus:
+            // DONE ; NEEDS CHECKING
 			int reg = GenExpression(n[0]);
 			Asm.Append("add", Loc.RegisterName(reg), "#1");
 			break;
 		case NodeType.MinusMinus:
+            // DONE ; NEEDS CHECKING
 			int reg = GenExpression(n[0]);
 			Asm.Append("sub", Loc.RegisterName(reg), "#1");
 			break;		
 		case NodeType.If:
+            // DONE ; NEEDS CHECKING
+            string tl = getNewLabel();
+            string fl = getNewLabel();
+            string lend = getNewLabel();
+
+            // if
+            GenConditional(n[0], tl, fl);
+            // then
+            Asm.AppendLabel(tl);
+            GenExpression(n[1]);
+            Asm.Append("bl", lend);
+            // else
+            Asm.AppendLabel(fl);
+            GenExpression(n[2]);
+            // end of loop
+            Asm.AppendLabel(lend);
+            break;
 		case NodeType.While:
+            // DONE ; NEEDS CHECKING
+            string wcond = getNewLabel();
+            string wstart = getNewLabel();
+            string wend = getNewLabel();
+
+            // while
+            Asm.AppendLabel(wcond);
+            GenConditional(n[0], wstart, wend);
+            // then do
+            Asm.AppendLabel(wstart);
+            GenExpression(n[1]);
+            Asm.AppendLabel("bl", wcond);
+            // end of loop
+            Asm.AppendLabel(wend);
+            break;
 		case NodeType.Break:
 			notImplemented(n, "GenStatement");
 			break;
 		case NodeType.Empty:
+            // DONE
 			// no code to generate!
 			break;
 		default:
@@ -206,18 +272,30 @@ public class GenCode {
 	void GenConditional( AST n, string TL, string FL ) {
 		switch(n.Tag) {
 		case NodeType.And:
+			notImplemented(n, "GenStatement");
+			break;
 		case NodeType.Or:
+			notImplemented(n, "GenStatement");
+			break;
 		case NodeType.Equals:
 			GenExpression(n[0]);
-			Asm.AppendLabel("beq", TL);
-			Asm.AppendLabel("bl", FL);
+			Asm.Append("beq", TL);
+			Asm.Append("bl", FL);
+            break;
 		case NodeType.NotEquals:
 			GenExpression(n[0]);
-			Asm.AppendLabel("bne", TL);
-			Asm.AppendLabel("bl", FL);		
+			Asm.Append("bne", TL);
+			Asm.Append("bl", FL);
+            break;
 		case NodeType.LessThan:
+			notImplemented(n, "GenStatement");
+			break;
 		case NodeType.GreaterThan:
+			notImplemented(n, "GenStatement");
+			break;
 		case NodeType.LessOrEqual:
+			notImplemented(n, "GenStatement");
+			break;
 		case NodeType.GreaterOrEqual:
 			notImplemented(n, "GenStatement");
 			break;
