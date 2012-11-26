@@ -218,7 +218,7 @@ public class GenCode {
                 // print integer
                 if (output.Type == MemType.Byte)
                 {
-                    Asm.Append("ldr", "r0", "=" + (int)output);
+                    Asm.Append("ldr", "r0", "=" + output);  // does this work?
                     Asm.Append("bl", "cb.WriteInt");
                 }
                 // print string
@@ -231,9 +231,37 @@ public class GenCode {
             // regular method call
             else
             {
-                // MEGA FIX ME
-                // FIX ME: Actual function name
-                Asm.Append("bl", "FnName");
+                int i;
+                int numc = n[1].NumChildren;
+                Loc temp;
+                int reg = getReg();
+                string strp;
+
+                // push each parameter onto the stack
+                for (i = 0; i < numc; i++)
+                {
+                    Loc temp = GenVariable(n[1][i]);
+                    if (temp.Type == MemType.Byte)
+                    {
+                        Asm.Append("ldr", Loc.RegisterName(reg), "=" + temp);
+                    }
+                    else if (temp.Type == MemType.Word)
+                    {
+                        strp = createStringConstant(temp);
+                        Asm.Append("ldr", Loc.RegisterName(reg), "=" + strp);
+                    }
+                    // push onto stack and increase pointer by 4 bytes
+                    Asm.Append("str", Loc.RegisterName(reg), "[sp,#-4]!");
+                }
+                // go to method
+                Asm.Append("bl", ((AST_leaf)n[0]).Sval);
+                // pop bytes off stack (equal to 4 * # of parameters)
+                i = numc * 4;
+                Asm.Append("add", "sp", "sp", "#" + i.ToString());
+                // move result out of scratch register
+                Asm.Append("mov", Loc.RegisterName(reg), "r0");
+                // store result in local variable
+                Asm.Append("str", Loc.RegisterName(reg), "[fp, #-40]"); // not sure if this right
             }
 
 			break;
