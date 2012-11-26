@@ -125,7 +125,7 @@ public class GenCode {
 		case NodeType.NewArray:
             // DONE ; NEEDS CHECKING
             result = 0;
-            int elem = (int) GenVariable(n[1]);  // i doubt this will work
+            int elem = ((AST_leaf)n[1]).Ival;
             // calculate heap space needed (4 bytes for size of array, and 4 bytes for each element)
             int space = (elem * 4) + 4;
             int reg = getReg();
@@ -134,7 +134,8 @@ public class GenCode {
             Asm.Append("bl", "cb.Malloc");
             Asm.Append("mov", Loc.RegisterName(reg), "#" + elem.ToString());
             // store array size in first word, and advance pointer to first element
-            Asm.Append("str", Loc.RegisterName(reg), "[r0],#4");
+            mem = new LocRegOffset(0, 4, MemType.Byte);
+            Asm.Append("str", Loc.RegisterName(reg), mem);
             freeReg(reg);
 			break;
 		default:
@@ -218,24 +219,26 @@ public class GenCode {
                 // print integer
                 if (output.Type == MemType.Byte)
                 {
-                    Asm.Append("ldr", "r0", "=" + output);  // does this work?
+                    int ilab = ((AST_leaf)n[1][0]).Ival;
+                    Asm.Append("ldr", "r0", "=" + ilab);  // does this work?
                     Asm.Append("bl", "cb.WriteInt");
                 }
                 // print string
                 else if (output.Type == MemType.Word)
                 {
-                    // FIX ME: code to load string to r0
+                    string slab = createStringConstant(((AST_leaf)n[0][0]).Sval);
+                    Asm.Append("ldr", "r0", slab);
                     Asm.Append("bl", "cb.WriteString");
                 }
             }
             // regular method call
             else
             {
-                int i;
+                int i, ilab;
                 int numc = n[1].NumChildren;
                 Loc temp;
                 int reg = getReg();
-                string strp;
+                string slab;
 
                 // push each parameter onto the stack
                 for (i = 0; i < numc; i++)
@@ -243,15 +246,23 @@ public class GenCode {
                     Loc temp = GenVariable(n[1][i]);
                     if (temp.Type == MemType.Byte)
                     {
-                        Asm.Append("ldr", Loc.RegisterName(reg), "=" + temp);
+                        ilab = ((AST_leaf)n[1][i]).Ival;
+                        Asm.Append("ldr", Loc.RegisterName(reg), "=" + ilab);
+                        variable = new LocRegOffset(sp, -4, MemType.Byte);
                     }
                     else if (temp.Type == MemType.Word)
                     {
-                        strp = createStringConstant(temp);
-                        Asm.Append("ldr", Loc.RegisterName(reg), "=" + strp);
+                        strp = createStringConstant(((AST_leaf)n[1][i]).Sval);
+                        Asm.Append("ldr", Loc.RegisterName(reg), strp);
+                        variable = new LocRegOffset(sp, -4, MemType.Word);
+                    }
+                    else
+                    {
+                        // fix
+                        Console.Write("Error");
                     }
                     // push onto stack and increase pointer by 4 bytes
-                    Asm.Append("str", Loc.RegisterName(reg), "[sp,#-4]!");
+                    Asm.Append("str", Loc.RegisterName(reg), variable + "!");
                 }
                 // go to method
                 Asm.Append("bl", ((AST_leaf)n[0]).Sval);
@@ -261,7 +272,8 @@ public class GenCode {
                 // move result out of scratch register
                 Asm.Append("mov", Loc.RegisterName(reg), "r0");
                 // store result in local variable
-                Asm.Append("str", Loc.RegisterName(reg), "[fp, #-40]"); // not sure if this right
+                variable = new LocRegOffset(fp, -40, MemType.Byte); // stack pointer always decrease by 40??
+                Asm.Append("str", Loc.RegisterName(reg), variable); 
             }
 
 			break;
