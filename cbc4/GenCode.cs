@@ -112,9 +112,9 @@ public class GenCode {
             // DONE ; NEEDS CHECKING
 			result = getReg();
 			int val = ((AST_leaf)n).Ival;
-			if(255 > val >= 0)
+			if(255 > val && val >= 0)
 				Asm.Append("mov", Loc.RegisterName(result), "#" + val.ToString());
-			else if(-255 < val < 0)
+			else if(-255 < val && val < 0)
 				Asm.Append("mvn", Loc.RegisterName(result), "#" + Math.Abs(val).ToString());
 			else
 				Asm.Append("ldr", Loc.RegisterName(result), "=" + val.ToString());
@@ -235,34 +235,34 @@ public class GenCode {
             else
             {
                 int i, ilab;
+                string slab;
                 int numc = n[1].NumChildren;
                 Loc temp;
-                int reg = getReg();
-                string slab;
+                int tmpr = getReg();
 
                 // push each parameter onto the stack
                 for (i = 0; i < numc; i++)
                 {
-                    Loc temp = GenVariable(n[1][i]);
+                    temp = GenVariable(n[1][i]);
+                    variable = new LocRegOffset(sp, -4, MemType.Byte);
                     if (temp.Type == MemType.Byte)
                     {
                         ilab = ((AST_leaf)n[1][i]).Ival;
-                        Asm.Append("ldr", Loc.RegisterName(reg), "=" + ilab);
-                        variable = new LocRegOffset(sp, -4, MemType.Byte);
+                        Asm.Append("ldr", Loc.RegisterName(tmpr), "=" + ilab);
                     }
                     else if (temp.Type == MemType.Word)
                     {
-                        strp = createStringConstant(((AST_leaf)n[1][i]).Sval);
-                        Asm.Append("ldr", Loc.RegisterName(reg), strp);
+                        slab = createStringConstant(((AST_leaf)n[1][i]).Sval);
+                        Asm.Append("ldr", Loc.RegisterName(tmpr), slab);
                         variable = new LocRegOffset(sp, -4, MemType.Word);
                     }
                     else
                     {
-                        // fix
+                        // FIX ME
                         Console.Write("Error");
                     }
                     // push onto stack and increase pointer by 4 bytes
-                    Asm.Append("str", Loc.RegisterName(reg), variable + "!");
+                    Asm.Append("str", Loc.RegisterName(tmpr), variable + "!");
                 }
                 // go to method
                 Asm.Append("bl", ((AST_leaf)n[0]).Sval);
@@ -270,34 +270,34 @@ public class GenCode {
                 i = numc * 4;
                 Asm.Append("add", "sp", "sp", "#" + i.ToString());
                 // move result out of scratch register
-                Asm.Append("mov", Loc.RegisterName(reg), "r0");
+                Asm.Append("mov", Loc.RegisterName(tmpr), "r0");
                 // store result in local variable
                 variable = new LocRegOffset(fp, -40, MemType.Byte); // stack pointer always decrease by 40??
-                Asm.Append("str", Loc.RegisterName(reg), variable); 
+                Asm.Append("str", Loc.RegisterName(tmpr), variable); 
             }
 
 			break;
 		case NodeType.Return:
             // DONE ; NEEDS CHECKING
             // load result into r1 if something is returned
-            if (n[0].Tag != CbType.Empty)
+            if (true)   // FIX ME: "n[0].Tag != CbType.Empty" does not work
             {
-                int reg = GenExpression(n[0]);
-                Asm.Append("ldr", Loc.RegisterName(1), Loc.RegisterName(reg));
+                int ret = GenExpression(n[0]);
+                Asm.Append("ldr", Loc.RegisterName(1), Loc.RegisterName(ret));
             }
 
             // return statement is a transfer to the label held in 'returnLabel'
-            Asm.Append("bl", returnLabel);            
+            Asm.Append("b", returnLabel);            
             break;
 		case NodeType.PlusPlus:
             // DONE ; NEEDS CHECKING
-			int reg = GenExpression(n[0]);
-			Asm.Append("add", Loc.RegisterName(reg), "#1");
+			int pp = GenExpression(n[0]);
+			Asm.Append("add", Loc.RegisterName(pp), "#1");
 			break;
 		case NodeType.MinusMinus:
             // DONE ; NEEDS CHECKING
-			int reg = GenExpression(n[0]);
-			Asm.Append("sub", Loc.RegisterName(reg), "#1");
+			int mm = GenExpression(n[0]);
+			Asm.Append("sub", Loc.RegisterName(mm), "#1");
 			break;		
 		case NodeType.If:
             // DONE ; NEEDS CHECKING
@@ -329,7 +329,7 @@ public class GenCode {
             // then do
             Asm.AppendLabel(wstart);
             GenExpression(n[1]);
-            Asm.AppendLabel("bl", wcond);
+            Asm.Append("b", wcond);
             // end of loop
             Asm.AppendLabel(wend);
             break;
@@ -348,23 +348,24 @@ public class GenCode {
 	// n is a subtree which generates a true-false test
 	// TL and FL are labels to jump to if the test is true/false resprectively
 	void GenConditional( AST n, string TL, string FL ) {
-		switch(n.Tag) {
+        int lhs, rhs;
+        switch(n.Tag) {
 		case NodeType.And:
             // DONE ; NEEDS CHECKING
-			string midl = getNewLabel();
+			string mida = getNewLabel();
             // check if first condition is true
-            GenConditional(n[0], midl, FL);
+            GenConditional(n[0], mida, FL);
             // if first condition is true, check second condition
-            Asm.AppendLabel(midl);
+            Asm.AppendLabel(mida);
             GenConditional(n[1], TL, FL);
 			break;
 		case NodeType.Or:
             // DONE ; NEEDS CHECKING
-			string midl = getNewLabel();
+			string mido = getNewLabel();
             // check if first condition is true; if true, go to end
-            GenConditional(n[0], TL, midl);
+            GenConditional(n[0], TL, mido);
             // if first condition is false, check second condition
-            Asm.AppendLabel(midl);
+            Asm.AppendLabel(mido);
             GenConditional(n[1], TL, FL);
 			break;
 		case NodeType.Equals:
@@ -374,7 +375,7 @@ public class GenCode {
             rhs = GenExpression(n[1]);
             Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
 			Asm.Append("beq", TL);
-			Asm.Append("bl", FL);
+			Asm.Append("b", FL);
             break;
 		case NodeType.NotEquals:
             // DONE ; NEEDS CHECKING
@@ -383,7 +384,7 @@ public class GenCode {
             rhs = GenExpression(n[1]);
             Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
 			Asm.Append("bne", TL);
-			Asm.Append("bl", FL);
+			Asm.Append("b", FL);
             break;
 		case NodeType.LessThan:
             // DONE ; NEEDS CHECKING
@@ -391,7 +392,7 @@ public class GenCode {
             rhs = GenExpression(n[1]);
             Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
             Asm.Append("blt", TL);
-            Asm.Append("bl", FL);
+            Asm.Append("b", FL);
 			break;
 		case NodeType.GreaterThan:
             // DONE ; NEEDS CHECKING
@@ -399,7 +400,7 @@ public class GenCode {
             rhs = GenExpression(n[1]);
             Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
             Asm.Append("bgt", TL);
-            Asm.Append("bl", FL);
+            Asm.Append("b", FL);
 			break;
 		case NodeType.LessOrEqual:
             // DONE ; NEEDS CHECKING
@@ -407,7 +408,7 @@ public class GenCode {
             rhs = GenExpression(n[1]);
             Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
             Asm.Append("ble", TL);
-            Asm.Append("bl", FL);
+            Asm.Append("b", FL);
 			break;
 		case NodeType.GreaterOrEqual:
             // DONE ; NEEDS CHECKING
@@ -415,7 +416,7 @@ public class GenCode {
             rhs = GenExpression(n[1]);
             Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
             Asm.Append("bge", TL);
-            Asm.Append("bl", FL);
+            Asm.Append("b", FL);
 			break;
 		default:
 			throw new Exception("Unexpected tag: " + n.Tag.ToString());
