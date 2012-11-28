@@ -40,7 +40,10 @@ public class GenCode {
 
 		switch(n.Tag) {
 		case NodeType.Ident:
-			notImplemented(n, "GenStatement");
+            // DONE ; NEEDS CHECKING
+            result = getReg();
+            mem = GenVariable(n);
+            Asm.Append("ldr", Loc.RegisterName(result), mem);
 			break;
 		case NodeType.Dot:
 			notImplemented(n, "GenStatement");
@@ -278,7 +281,7 @@ public class GenCode {
 
 			break;
 		case NodeType.Return:
-            // DONE ; NEEDS CHECKING
+            // DONE ; NEEDS CHECKING ; MAYBE NEEDS TO DO A LOT MORE
             // load result into r1 if something is returned
             if (true)   // FIX ME: "n[0].Tag != CbType.Empty" does not work
             {
@@ -427,17 +430,25 @@ public class GenCode {
 		Asm.StartMethod(((AST_leaf)n[1]).Sval);
 
 		// 1. generate prolog code
-		// FIX ME!
 		returnLabel = getNewLabel();
+        Asm.AppendLabel(((AST_leaf)n[1]).Sval);
+        // push all registers in r4-r14 onto stack
+        Asm.Append("stmfd", "sp!", "{r4-r14}");
+        // set up frame pointer
+        Asm.Append("mov", "fp", "sp");
+        // reserve bytes for local variables in the function
+        int allocb = 4 * 3;    // FIX ME - How to determine number of local variables?!
 
 		// 2. translate the method body
 		GenStatement(n[3]);
 
-		Asm.AppendLabel(returnLabel);
 		// 3. generate epilog code
-		// FIX ME!
 		Asm.EndMethod();
-
+        Asm.AppendLabel(returnLabel);
+        // pop local variables
+        Asm.Append("mov", "sp", "fp");
+        // reload saved registers and return flow
+        Asm.Append("ldmfd", "sp!", "{r4-r13,pc}");
 	}
 
 	void GenConstDefn( AST n ) {
