@@ -336,11 +336,11 @@ public class GenCode {
             GenConditional(n[0], tl, fl);
             // then
             Asm.AppendLabel(tl);
-            GenExpression(n[1]);
+            GenStatement(n[1]);
             Asm.Append("bl", lend);
             // else
             Asm.AppendLabel(fl);
-            GenExpression(n[2]);
+            GenStatement(n[2]);
             // end of loop
             Asm.AppendLabel(lend);
             break;
