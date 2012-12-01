@@ -1,6 +1,6 @@
 @ CbRuntime.s  -- the runtime support routines, coded in ARM assembler
 
-	.global	cb.DivMod, cb.Malloc, cb.MemCopy
+	.global	cb.DivMod, cb.Malloc, cb.MemCopy, cb.StrLen
 	.global	cb.ReadInt, cb.WriteInt, cb.WriteString
 
 
@@ -30,7 +30,7 @@ cbri1:	bl	getc
 cbri2:	bl	getc		@ get new char
 cbri3:	cmp	r0, #'9'
 	bgt	cbri9		@ not a digit
-	subs	r0, #'0'
+	subs	r0, r0, #'0'
 	blt	cbri9
 	mla	r5, r2, r4, r0
 	mov	r2, r5
@@ -42,10 +42,11 @@ cbri9:	cmp	r3, #0
 	.ltorg
 
 @ read one byte from input
-getc:	ldr	r1, =getcp
+getc:	adr	r1, getcp
 	mov	r0, #0x06
 	swi	0x123456
-	ldrsb	r0,getcb
+	adr	r0, getcb
+	ldrsb	r0, [r0]
 	mov	pc, lr
 getcp:	.word	0		@ file handle 0 = standard input
 	.word	getcb		@ where to put the input
@@ -202,5 +203,16 @@ cbmc1:	ldrb	r3, [r1],#1
 cb.MemCopy:
 	subs	r2, r2, #1
 	bge	cbmc1
+	mov	pc, lr
+
+@ StrLen(s) returns the length of string s
+	.text
+cb.StrLen:
+	mov	r1, #0
+sl1:	ldrsb	r2, [r0], #1
+	cmp	r2, #0
+	addne	r1, r1, #1
+	bne	sl1
+	mov	r0, r1
 	mov	pc, lr
 	.end

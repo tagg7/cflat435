@@ -27,6 +27,14 @@ Main:
 	ldr	r0, =DM2
 	bl	cb.WriteString
 
+	ldr	r0, =SL1
+	bl	cb.WriteString
+	ldr	r0, =ABC
+	bl	cb.StrLen
+	bl	cb.WriteInt
+	ldr	r0, =SL2
+	bl	cb.WriteString
+
 	mov	r0, #100
 	bl	cb.Malloc
 	bl	cb.WriteInt
@@ -61,6 +69,9 @@ WI1:	.asciz	"  <-- was that 999 output?\n\n"
 WI2:	.asciz	"  <-- was that -999 output?\n\n"
 DM1:	.asciz	"    "
 DM2:	.asciz	"  <-- should have been 1000/7 and 1000%7 displayed\n\n"
+SL1:	.asciz	"Length of string \"abc\" = "
+SL2:	.asciz  "\n\n"
+ABC:	.asciz	"abc"
 MA1:	.asciz	"  <-- malloc(100)\n\n"
 MA2:	.asciz	"  <-- malloc(100) again\n\n"
 RD1:	.asciz	"Enter a sequence of integers, last integer must be 0\n\n"
