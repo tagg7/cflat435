@@ -41,12 +41,15 @@ public class GenCode {
 		switch(n.Tag) {
 		case NodeType.Ident:
             // DONE ; NEEDS CHECKING
-            result = getReg();
             mem = GenVariable(n);
+            result = getReg();			
             Asm.Append("ldr", Loc.RegisterName(result), mem);
 			break;
 		case NodeType.Dot:
-			notImplemented(n, "GenStatement");
+            // DONE ; NEEDS CHECKING
+            mem = GenVariable(n);
+            result = getReg();			
+            Asm.Append("ldr", Loc.RegisterName(result), mem);
 			break;
 		case NodeType.Index:
             // DONE
@@ -149,29 +152,50 @@ public class GenCode {
 	
 	Loc GenVariable( AST n ) {
 		Loc result = null;
+		int offset = 0;
+		MemType mtyp = null;
 		switch(n.Tag) {
 		case NodeType.Ident:
 			// The ident must be a local variable or a formal parameter.
 			// In either case, the memory location is at an offset from
 			// the frame pointer register.
-			int offset = -40;  // FIX ME!
-			MemType mtyp = MemType.Word;  // FIX ME!
-			result = new LocRegOffset( fp, offset, mtyp );
+			
+			// search for existing strings?
+			// string label = searchStringConstants(((AST_leaf)n).Sval);
+			
+			// provided code
+			offset = -40;  // FIX ME!
+			mtyp = MemType.Word;  // FIX ME!
+			result = new LocRegOffset(fp, offset, mtyp);
 			break;
 		case NodeType.Dot:
 			// The left operand must be an expression with a struct type.
 			// The right operand must be the name of a field in that struct.
 			// The code should set result to a LocRegOffset instance where
-			// the register comes from n[0] and the offset from n[1].
-			notImplemented(n, "GenStatement");
+			// the register comes from n[0] and the offset from n[1].		
+			int lhs = GenExpression(n[0]);
+			string rhs = ((AST_leaf)n[1]).Sval;
+			offset = -40; // FIX ME!
+			mtyp = MemType.Word;  // FIX ME!
+			
+			// note: case where expression is string.Length
+			if(rhs == "Length")
+			{
+				offset = -4;
+				mtyp = MemType.Byte;
+			}
+			
+			result = new LocRegOffset(lhs, offset, mtyp);			
 			break;
 		case NodeType.Index:
 			// The left operand must be an expression with an array or string type
 			// The right operand must be an int expression to use as an index.
 			// The code should set result to a LocRegIndex instance where
 			// the register comes from n[0] and the offset from n[1].
-			notImplemented(n, "GenVariable");
-			result = new LocLabel("ERROR", MemType.Word);  // FIX ME!
+			int lhs = GenExpression(n[0]);	// is the lhs an expression?
+			offset = ((AST_leaf)n[1]).Ival * 4;
+			mtyp = MemType.Byte;			// FIX ME: not always true
+			result = new LocRegIndex(lhs, offset, mtyp);
 			break;
 		}
 		return result;
@@ -337,7 +361,8 @@ public class GenCode {
             Asm.AppendLabel(wend);
             break;
 		case NodeType.Break:
-			notImplemented(n, "GenStatement");
+			// DONE ; NEEDS CHECKING ; MIGHT NEED TO DO A LOT MORE
+			Asm.Append("b", returnLabel);
 			break;
 		case NodeType.Empty:
             // DONE
@@ -427,17 +452,24 @@ public class GenCode {
 	}
 	
 	void GenMethod( AST n ) {
+		// NOT DONE ; NEEDS A LOT OF WORK
 		Asm.StartMethod(((AST_leaf)n[1]).Sval);
 
 		// 1. generate prolog code
 		returnLabel = getNewLabel();
         Asm.AppendLabel(((AST_leaf)n[1]).Sval);
         // push all registers in r4-r14 onto stack
-        Asm.Append("stmfd", "sp!", "{r4-r14}");
+        Asm.Append("stmfd", "sp!", "{r4-r12,lr}");
         // set up frame pointer
         Asm.Append("mov", "fp", "sp");
+		
+		// NOTE: Need to add code in CbTcVistitor.cs to determine number of local variables;
+		// FROM NIGEL... store the sizes as annotations on the tree nodes ... and the leaf 
+		// node class for an identifier used as a variable's name or a struct type name 
+		// does have an unused int field which can be used for that purpose.
+		
         // reserve bytes for local variables in the function
-        int allocb = 4 * 3;    // FIX ME - How to determine number of local variables?!
+        int allocb = 4 * 3;    // FIX ME
 
 		// 2. translate the method body
 		GenStatement(n[3]);
@@ -448,7 +480,7 @@ public class GenCode {
         // pop local variables
         Asm.Append("mov", "sp", "fp");
         // reload saved registers and return flow
-        Asm.Append("ldmfd", "sp!", "{r4-r13,pc}");
+        Asm.Append("ldmfd", "sp!", "{r4-r12,pc}");
 	}
 
 	void GenConstDefn( AST n ) {
@@ -559,6 +591,14 @@ public class GenCode {
 			Asm.AppendDirective(".asciz", pair.Item2);
 		}
 		stringConsts.Clear();
+	}
+	
+	private string searchStringConstants( string name ) {
+		foreach( Tuple<string,string> pair in stringConsts) {
+			if(pair.Item2 == name)
+				return pair.Item1;
+		}
+		return null;
 	}
 }
 
