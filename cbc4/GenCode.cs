@@ -152,8 +152,8 @@ public class GenCode {
 	
 	Loc GenVariable( AST n ) {
 		Loc result = null;
-		int offset = 0;
-		MemType mtyp = null;
+		int lhs, offset = 0;
+		MemType mtyp;
 		switch(n.Tag) {
 		case NodeType.Ident:
 			// The ident must be a local variable or a formal parameter.
@@ -173,7 +173,7 @@ public class GenCode {
 			// The right operand must be the name of a field in that struct.
 			// The code should set result to a LocRegOffset instance where
 			// the register comes from n[0] and the offset from n[1].		
-			int lhs = GenExpression(n[0]);
+			lhs = GenExpression(n[0]);
 			string rhs = ((AST_leaf)n[1]).Sval;
 			offset = -40; // FIX ME!
 			mtyp = MemType.Word;  // FIX ME!
@@ -192,7 +192,7 @@ public class GenCode {
 			// The right operand must be an int expression to use as an index.
 			// The code should set result to a LocRegIndex instance where
 			// the register comes from n[0] and the offset from n[1].
-			int lhs = GenExpression(n[0]);	// is the lhs an expression?
+			lhs = GenExpression(n[0]);	// is the lhs an expression?
 			offset = ((AST_leaf)n[1]).Ival * 4;
 			mtyp = MemType.Byte;			// FIX ME: not always true
 			result = new LocRegIndex(lhs, offset, mtyp);
@@ -470,6 +470,7 @@ public class GenCode {
 		
         // reserve bytes for local variables in the function
         int allocb = 4 * 3;    // FIX ME
+        Asm.Append("sub", "sp", "sp", "#" + allocb.ToString());
 
 		// 2. translate the method body
 		GenStatement(n[3]);
