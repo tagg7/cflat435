@@ -242,7 +242,7 @@ public class GenCode {
             // cbio.Write(x)
             if (n[0].Tag == NodeType.Dot)
             {
-                Loc output = GenVariable(n[1]);
+                Loc output = GenVariable(n[1][0]);  // Note: Should this be GenExpression ?!
                 // print integer
                 if (output.Type == MemType.Byte)
                 {
@@ -270,7 +270,7 @@ public class GenCode {
                 // push each parameter onto the stack
                 for (i = 0; i < numc; i++)
                 {
-                    temp = GenVariable(n[1][i]);
+                    temp = GenVariable(n[1][i]);    // Note: Should this be GenExpression ?!
                     variable = new LocRegOffset(sp, -4, MemType.Byte);
                     if (temp.Type == MemType.Byte)
                     {
@@ -299,7 +299,7 @@ public class GenCode {
                 // move result out of scratch register
                 Asm.Append("mov", Loc.RegisterName(tmpr), "r0");
                 // store result in local variable
-                variable = new LocRegOffset(fp, -40, MemType.Byte); // stack pointer always decrease by 40??
+                variable = new LocRegOffset(fp, -40, MemType.Byte); // stack pointer always decreases by 40??
                 Asm.Append("str", Loc.RegisterName(tmpr), variable); 
             }
 
