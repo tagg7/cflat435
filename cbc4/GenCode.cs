@@ -467,9 +467,10 @@ public class GenCode {
 		// FROM NIGEL... store the sizes as annotations on the tree nodes ... and the leaf 
 		// node class for an identifier used as a variable's name or a struct type name 
 		// does have an unused int field which can be used for that purpose.
+        // ^^ THIS HAS BEEN DONE, BUT IS NOT TESTED!!!
 		
         // reserve bytes for local variables in the function
-        int allocb = 4 * 3;    // FIX ME
+        int allocb = 4 * ((AST_leaf)n[1]).Ival;
         Asm.Append("sub", "sp", "sp", "#" + allocb.ToString());
 
 		// 2. translate the method body

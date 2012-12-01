@@ -17,8 +17,9 @@ namespace FrontEnd {
 // Traverses the AST to annotate the tree nodes with their datatypes
 // reporting semantic errors in the process
 public class TcVisitor: Visitor {
-    public int NumErrors   { get; private set; }
-    public int NumWarnings { get; private set; }
+    public int NumErrors    { get; private set; }
+    public int NumWarnings  { get; private set; }
+    public int LocalVar     { get; private set; }
 
     // all methods declared in the CFlat program (which is a single class)
     public IDictionary<string,List<CbMethod>> Methods {get; private set;}
@@ -315,6 +316,7 @@ public class TcVisitor: Visitor {
                     }
                     // 2. visit the body of the method, type checking it
                     AST block = node[3];
+                    LocalVar = 0;
                     block.Accept(this);
                     // check that return statements match return type of method
                     for (int i = 0; i < block.NumChildren; i++)
@@ -323,6 +325,10 @@ public class TcVisitor: Visitor {
                             ReportError(block[i].LineNumber, "Return statement type ({0}) doesn't match method return type ({1})", block[i].Type, rettyp);
                     }
                 }
+
+                // set ival to local number of variables in method
+                ((AST_leaf)(node[1])).Ival = LocalVar;
+
                 break;
             case NodeType.FieldDecl:
                 // Nothing to do ... this has been handled by the prePass method below
@@ -338,6 +344,8 @@ public class TcVisitor: Visitor {
                 CbType typ = lookUpType(node[0]);
                 // add identifiers to symbol table
                 AST idList = node[1];
+                // add number of local variables to local list
+                LocalVar += idList.NumChildren;
                 for (int i = 0; i < idList.NumChildren; i++)
                 {
                     // check for duplicates
@@ -394,16 +402,27 @@ public class TcVisitor: Visitor {
                 // no type declaration
                 break;
             case NodeType.If:
+                int temp1, temp2;
+
                 // check boolean parameter
                 node[0].Accept(this);
 
                 if(node[0].Type != CbType.Bool && node[0].Type != CbType.Error)
                     ReportError(node[0].LineNumber, "Invalid boolean expression for if statement");
 
+                // store current # of local variables
+                temp1 = LocalVar;
+                LocalVar = 0;
                 // now check the do statement
                 node[1].Accept(this);
+                temp2 = LocalVar;
                 // now check for the else statement
                 node[2].Accept(this);
+                // add # of local variables of function to global variable
+                if (temp2 > LocalVar)
+                    LocalVar = temp1 + temp2;
+                else
+                    LocalVar = temp1 + LocalVar;
 
                 // no type declaration
                 break;

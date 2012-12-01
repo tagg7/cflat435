@@ -102,8 +102,8 @@ public class AST_kary : AST {
 
 public class AST_leaf : AST {
 
-    public string Sval { get; protected set; }
-    public int    Ival { get; protected set; }
+    public string Sval { get; set; }
+    public int    Ival { get; set; }
 
     // constructor when no associated lexical value (e.g. null token)
     public AST_leaf( NodeType tag, int ln ) : base(tag,ln) {
