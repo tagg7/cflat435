@@ -169,6 +169,8 @@ public class GenCode {
 			result = new LocRegOffset(fp, offset, mtyp);
 			break;
 		case NodeType.Dot:
+            // FIX ME ; FAR FROM DONE
+
 			// The left operand must be an expression with a struct type.
 			// The right operand must be the name of a field in that struct.
 			// The code should set result to a LocRegOffset instance where
@@ -178,12 +180,22 @@ public class GenCode {
 			offset = -40; // FIX ME!
 			mtyp = MemType.Word;  // FIX ME!
 			
-			// note: case where expression is string.Length
-			if(rhs == "Length")
+			// case where expression is Array.Length
+			if (rhs == "Length")
 			{
 				offset = -4;
 				mtyp = MemType.Byte;
 			}
+            // case where expression is String.Length
+            if (false)    // FIX ME: lhs is a string
+            {
+                lhs = getReg();
+                // load string into r0
+                Asm.Append("ldr", "r0", "string");  // FIX ME: Add value for proper string
+                Asm.Append("bl", "cb.StrLen");
+                offset = 0;
+                mtyp = MemType.Byte;
+            }
 			
 			result = new LocRegOffset(lhs, offset, mtyp);			
 			break;
@@ -285,8 +297,7 @@ public class GenCode {
                     }
                     else
                     {
-                        // FIX ME
-                        Console.Write("Error");
+                        throw new Exception("Invalid parameter: " + n[1][i].Tag.ToString());
                     }
                     // push onto stack and increase pointer by 4 bytes
                     Asm.Append("str", Loc.RegisterName(tmpr), variable + "!");
