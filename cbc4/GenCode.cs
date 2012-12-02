@@ -292,21 +292,17 @@ namespace BackEnd
                     // cbio.Write(x)
                     if (n[0].Tag == NodeType.Dot)
                     {
-                        Loc output = GenVariable(n[1][0]);  // Note: Should this be GenExpression ?!
+                        int regw = GenExpression(n[1][0]);
+                        Asm.Append("mov", "r0", Loc.RegisterName(regw));
                         // print integer
-                        if (output.Type == MemType.Byte)
-                        {
-                            int ilab = ((AST_leaf)n[1][0]).Ival;
-                            Asm.Append("ldr", "r0", "=" + ilab);  // does this work?
+                        if (true)    // FIX ME: Expression is an integer
                             Asm.Append("bl", "cb.WriteInt");
-                        }
                         // print string
-                        else if (output.Type == MemType.Word)
-                        {
-                            string slab = createStringConstant(((AST_leaf)n[0][0]).Sval);
-                            Asm.Append("ldr", "r0", slab);
+                        else if (false)     // FIX ME: Expression is a string
                             Asm.Append("bl", "cb.WriteString");
-                        }
+                        else
+                            throw new Exception("Invalid parameter to cbio.Write: " + n[1][0].Tag.ToString());
+                        freeReg(regw);
                     }
                     // regular method call
                     else
