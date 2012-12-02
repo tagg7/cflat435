@@ -40,7 +40,7 @@ namespace BackEnd
 		    int lhs, rhs;
 		    Loc mem;
 
-		    switch(n.Tag)
+		    switch (n.Tag)
             {
 		        case NodeType.Ident:
                     // DONE ; NEEDS CHECKING
@@ -121,9 +121,9 @@ namespace BackEnd
                     // DONE ; NEEDS CHECKING
 			        result = getReg();
 			        int val = ((AST_leaf)n).Ival;
-			        if(255 > val && val >= 0)
+			        if (255 > val && val >= 0)
 				        Asm.Append("mov", Loc.RegisterName(result), "#" + val.ToString());
-			        else if(-255 < val && val < 0)
+			        else if (-255 < val && val < 0)
 				        Asm.Append("mvn", Loc.RegisterName(result), "#" + Math.Abs(val).ToString());
 			        else
 				        Asm.Append("ldr", Loc.RegisterName(result), "=" + val.ToString());
@@ -159,7 +159,7 @@ namespace BackEnd
 		    Loc result = null;
 		    int lhs, offset = 0;
 		    MemType mtyp;
-		    switch(n.Tag)
+		    switch (n.Tag)
             {
 		        case NodeType.Ident:
 			        // The ident must be a local variable or a formal parameter.
@@ -227,7 +227,7 @@ namespace BackEnd
 	    void GenStatement(AST n)
         {
 		    Loc variable;
-		    switch(n.Tag)
+		    switch (n.Tag)
             {
 		        case NodeType.Assign:
                     // DONE
@@ -246,7 +246,7 @@ namespace BackEnd
 			        break;
 		        case NodeType.Block:
                     // DONE
-			        for(int i = 0;  i < n.NumChildren;  i++)
+			        for (int i = 0;  i < n.NumChildren;  i++)
 				        GenStatement(n[i]);
 			        break;
 		        case NodeType.Read:
@@ -404,7 +404,7 @@ namespace BackEnd
 	    void GenConditional(AST n, string TL, string FL)
         {
             int lhs, rhs;
-            switch(n.Tag)
+            switch (n.Tag)
             {
 		        case NodeType.And:
                     // DONE ; NEEDS CHECKING
@@ -532,10 +532,10 @@ namespace BackEnd
         public void GenProgram(AST n)
         {
 		    AST decls = n[2];
-		    for(int i = 0; i < decls.NumChildren;  i++)
+		    for (int i = 0; i < decls.NumChildren;  i++)
             {
 			    AST decl = decls[i];
-			    switch(decl.Tag)
+			    switch (decl.Tag)
                 {
 			        case NodeType.Method:
 				        GenMethod(decl);
@@ -590,13 +590,13 @@ namespace BackEnd
 	    // marks registers 4-11 as being available
 	    void resetRegs()
         {
-		    for(int i=0; i<=11; i++)
+		    for (int i=0; i<=11; i++)
 			    regAvailable[i] = true;
 	    }
 
 	    int getReg()
         {
-		    for(int i = 4; i<=11; i++ )
+		    for (int i = 4; i<=11; i++ )
             {
 			    if (regAvailable[i])
                 {
@@ -637,7 +637,7 @@ namespace BackEnd
 
 	    private void defineStringConstants()
         {
-		    foreach(Tuple<string,string> pair in stringConsts)
+		    foreach (Tuple<string,string> pair in stringConsts)
             {
 			    Asm.AppendLabel(pair.Item1);
 			    Asm.AppendDirective(".asciz", pair.Item2);
@@ -647,9 +647,9 @@ namespace BackEnd
 	    
 	    private string searchStringConstants(string name)
         {
-		    foreach(Tuple<string,string> pair in stringConsts)
+		    foreach (Tuple<string,string> pair in stringConsts)
             {
-			    if(pair.Item2 == name)
+			    if (pair.Item2 == name)
 				    return pair.Item1;
 		    }
 		    return null;
