@@ -136,6 +136,7 @@ namespace BackEnd
                     result = 0;
                     int elem = ((AST_leaf)n[1]).Ival;
                     // calculate heap space needed (4 bytes for size of array, and 4 bytes for each element)
+                    // FIX ME ; array may be an array of structs, size of each element not always 4
                     int space = (elem * 4) + 4;
                     int reg = getReg();
                     Asm.Append("mov", "r0", "#" + space.ToString());
@@ -184,15 +185,9 @@ namespace BackEnd
 			        string rhs = ((AST_leaf)n[1]).Sval;
 			        offset = -40; // FIX ME!
 			        mtyp = MemType.Word;  // FIX ME!
-			
-			        // case where expression is Array.Length
-			        if (rhs == "Length")
-			        {
-				        offset = -4;
-				        mtyp = MemType.Byte;
-			        }
+
                     // case where expression is String.Length
-                    if (false)    // FIX ME: lhs is a string
+                    if (n[0].Type == FrontEnd.CbType.String)
                     {
                         lhs = getReg();
                         // load string into r0
@@ -200,6 +195,17 @@ namespace BackEnd
                         Asm.Append("bl", "cb.StrLen");
                         offset = 0;
                         mtyp = MemType.Byte;
+                    }
+                    // case where expression is Array.Length
+                    else if (n[0].Type is FrontEnd.CbArray)
+                    {
+                        offset = -4;
+                        mtyp = MemType.Byte;
+                    }
+                    // case where expression is struct.field
+                    else if (n[0].Type is FrontEnd.CbStruct)
+                    {
+                        // FIX ME ; CODE GOES HERE
                     }
 			
 			        result = new LocRegOffset(lhs, offset, mtyp);			
@@ -618,14 +624,14 @@ namespace BackEnd
 	    private string createStringConstant(string s)
         {
 		    string label = string.Format("_S.{0}", nextStringNum++);
-		    stringConsts.Add( Tuple.Create(label,s) );
+		    stringConsts.Add(Tuple.Create(label,s));
 		    return label;
 	    }
     
 	    // use this method to define a named string constant
 	    private string createStringConstant(string name, string s)
         {
-		    stringConsts.Add( Tuple.Create(name,s) );
+		    stringConsts.Add(Tuple.Create(name,s));
 		    return name;
 	    }
 
@@ -638,7 +644,7 @@ namespace BackEnd
 		    }
 		    stringConsts.Clear();
 	    }
-	
+	    
 	    private string searchStringConstants(string name)
         {
 		    foreach(Tuple<string,string> pair in stringConsts)
