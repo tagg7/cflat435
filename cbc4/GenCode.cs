@@ -121,10 +121,10 @@ namespace BackEnd
                     // DONE ; NEEDS CHECKING
 			        result = getReg();
 			        int val = ((AST_leaf)n).Ival;
-			        if (255 > val && val >= 0)
+			        if (255 >= val && val >= 0)
 				        Asm.Append("mov", Loc.RegisterName(result), "#" + val.ToString());
-			        else if (-255 < val && val < 0)
-				        Asm.Append("mvn", Loc.RegisterName(result), "#" + Math.Abs(val).ToString());
+			        else if (-255 <= val && val < 0)
+				        Asm.Append("mvn", Loc.RegisterName(result), "#" + (-val).ToString());
 			        else
 				        Asm.Append("ldr", Loc.RegisterName(result), "=" + val.ToString());
 			        break;
@@ -134,17 +134,18 @@ namespace BackEnd
 		        case NodeType.NewArray:
                     // DONE ; NEEDS CHECKING
                     result = 0;
-                    int elem = ((AST_leaf)n[1]).Ival;
-                    // calculate heap space needed (4 bytes for size of array, and 4 bytes for each element)
-                    // FIX ME ; array may be an array of structs, size of each element not always 4
-                    int space = (elem * 4) + 4;
+                    int length = ((AST_leaf)n[1]).Ival;
+                    // FIX ME ; array may be an array of structs of arrays => size of each element not always 4
+                    // calculate heap space needed (4 bytes for length of array, and 'size' bytes for each element)
+                    int size = 4;
+                    int space = (length * size) + 4;
                     int reg = getReg();
                     Asm.Append("mov", "r0", "#" + space.ToString());
                     // request space from the malloc routine
                     Asm.Append("bl", "cb.Malloc");
-                    Asm.Append("mov", Loc.RegisterName(reg), "#" + elem.ToString());
+                    Asm.Append("mov", Loc.RegisterName(reg), "#" + length.ToString());
                     // store array size in first word, and advance pointer to first element
-                    mem = new LocRegOffset(0, 4, MemType.Byte);
+                    mem = new LocRegOffset(0, size, MemType.Byte);
                     Asm.Append("str", Loc.RegisterName(reg), mem);
                     freeReg(reg);
 			        break;
@@ -165,7 +166,7 @@ namespace BackEnd
 			        // The ident must be a local variable or a formal parameter.
 			        // In either case, the memory location is at an offset from
 			        // the frame pointer register.
-			
+
 			        // search for existing strings?
 			        // string label = searchStringConstants(((AST_leaf)n).Sval);
 			
@@ -175,23 +176,34 @@ namespace BackEnd
 			        result = new LocRegOffset(fp, offset, mtyp);
 			        break;
 		        case NodeType.Dot:
-                    // FIX ME ; FAR FROM DONE
-
-			        // The left operand must be an expression with a struct type.
-			        // The right operand must be the name of a field in that struct.
-			        // The code should set result to a LocRegOffset instance where
-			        // the register comes from n[0] and the offset from n[1].		
-			        lhs = GenExpression(n[0]);
-			        string rhs = ((AST_leaf)n[1]).Sval;
-			        offset = -40; // FIX ME!
-			        mtyp = MemType.Word;  // FIX ME!
+                    // FIX ME ; FAR FROM DONE ; MAYBE UBER WRONG
 
                     // case where expression is String.Length
                     if (n[0].Type == FrontEnd.CbType.String)
                     {
                         lhs = getReg();
                         // load string into r0
-                        Asm.Append("ldr", "r0", "string");  // FIX ME: Add value for proper string
+                        // find string
+                        // FIX ME ; only works for string variables and string constants, not string fields in structures or arrays of strings or combinations thereof
+                        string label = null;
+                        if (n[0].NumChildren == 0)
+                        {
+                            string val = ((AST_leaf)n[0]).Sval;
+                            if (n[0].Tag == NodeType.Ident)
+                            {
+                                label = searchStringConstants(val);
+                                if (label == null)
+                                {
+                                    throw new Exception("String variable memory not allocated: " + val);
+                                }
+                            } else if (n[0].Tag == NodeType.StringConst)
+                            {
+                                label = searchStringConstants(val);
+                                if (label == null)
+                                    label = createStringConstant(val);
+                            }
+                        }
+                        Asm.Append("ldr", "r0", label);
                         Asm.Append("bl", "cb.StrLen");
                         offset = 0;
                         mtyp = MemType.Byte;
@@ -199,15 +211,28 @@ namespace BackEnd
                     // case where expression is Array.Length
                     else if (n[0].Type is FrontEnd.CbArray)
                     {
+                        lhs = GenExpression(n[0]);
                         offset = -4;
                         mtyp = MemType.Byte;
                     }
                     // case where expression is struct.field
                     else if (n[0].Type is FrontEnd.CbStruct)
                     {
-                        // FIX ME ; CODE GOES HERE
+                        // FIX ME
+                        // The left operand must be an expression with a struct type.
+                        // The right operand must be the name of a field in that struct.
+                        // The code should set result to a LocRegOffset instance where
+                        // the register comes from n[0] and the offset from n[1].
+                        lhs = GenExpression(n[0]);
+                        string rhs = ((AST_leaf)n[1]).Sval;
+                        offset = -40; // FIX ME!
+                        mtyp = MemType.Word;  // FIX ME!
                     }
-			
+                    else
+                    {
+                        throw new Exception("Unknown Dot operation with left node type " + n[0].Type.ToString());
+                    }
+
 			        result = new LocRegOffset(lhs, offset, mtyp);			
 			        break;
 		        case NodeType.Index:
@@ -230,15 +255,15 @@ namespace BackEnd
 		    switch (n.Tag)
             {
 		        case NodeType.Assign:
-                    // DONE
-			        Loc lhs = GenVariable(n[0]);  // LHS
+                    // FIX ME ; strings ??
+                    Loc lhs = GenVariable(n[0]);  // LHS
 			        int reg = GenExpression(n[1]);  // RHS
-			        if (lhs.Type == MemType.Byte)
-				        Asm.Append("strb", Loc.RegisterName(reg), lhs);
-			        else if (lhs.Type == MemType.Word)
-				        Asm.Append("str", Loc.RegisterName(reg), lhs);
-			        else
-				        throw new Exception("unsupported memory type " + lhs.Type.ToString());
+                    if (lhs.Type == MemType.Word)
+                        Asm.Append("str", Loc.RegisterName(reg), lhs);
+                    //else if (lhs.Type == MemType.Byte)
+                        //Asm.Append("strb", Loc.RegisterName(reg), lhs);
+                    else
+                        throw new Exception("unsupported memory type " + lhs.Type.ToString());
 			        break;
 		        case NodeType.LocalDecl:
                     // DONE
