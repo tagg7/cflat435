@@ -241,9 +241,18 @@ namespace BackEnd
 			        // The code should set result to a LocRegIndex instance where
 			        // the register comes from n[0] and the offset from n[1].
 			        lhs = GenExpression(n[0]);	// is the lhs an expression?
-			        offset = ((AST_leaf)n[1]).Ival * 4;
-			        mtyp = MemType.Byte;			// FIX ME: not always true
-			        result = new LocRegIndex(lhs, offset, mtyp);
+                    // check for struct reference
+                    if (n[0].Tag == NodeType.Dot)
+                    {
+                        result = GenVariable(n[0]);     // FIX ME: does not take array position into account!
+                        mtyp = MemType.Byte;			// FIX ME: not always true
+                    }
+                    else
+                    {
+                        offset = ((AST_leaf)n[1]).Ival * 4;
+                        mtyp = MemType.Byte;			// FIX ME: not always true
+                        result = new LocRegIndex(lhs, offset, mtyp);
+                    }
 			        break;
 		    }
 		    return result;
@@ -257,11 +266,16 @@ namespace BackEnd
 		        case NodeType.Assign:
                     // FIX ME ; strings ??
                     Loc lhs = GenVariable(n[0]);  // LHS
+
+                    // FIX ME ; should do something special here
+                    if (n[1].Tag == NodeType.Call)
+                        break;
+
 			        int reg = GenExpression(n[1]);  // RHS
                     if (lhs.Type == MemType.Word)
                         Asm.Append("str", Loc.RegisterName(reg), lhs);
-                    //else if (lhs.Type == MemType.Byte)
-                        //Asm.Append("strb", Loc.RegisterName(reg), lhs);
+                    else if (lhs.Type == MemType.Byte)
+                        Asm.Append("strb", Loc.RegisterName(reg), lhs);
                     else
                         throw new Exception("unsupported memory type " + lhs.Type.ToString());
 			        break;
@@ -295,7 +309,7 @@ namespace BackEnd
                         int regw = GenExpression(n[1][0]);
                         Asm.Append("mov", "r0", Loc.RegisterName(regw));
                         // print integer
-                        if (true)    // FIX ME: Expression is an integer
+                        if (true)           // FIX ME: Expression is an integer
                             Asm.Append("bl", "cb.WriteInt");
                         // print string
                         else if (false)     // FIX ME: Expression is a string
@@ -402,7 +416,7 @@ namespace BackEnd
                     GenConditional(n[0], wstart, wend);
                     // then do
                     Asm.AppendLabel(wstart);
-                    GenExpression(n[1]);
+                    GenStatement(n[1]);
                     Asm.Append("b", wcond);
                     // end of loop
                     Asm.AppendLabel(wend);
@@ -617,7 +631,7 @@ namespace BackEnd
 
 	    int getReg()
         {
-		    for (int i = 4; i<=11; i++ )
+		    for (int i = 4; i<=10; i++ )
             {
 			    if (regAvailable[i])
                 {

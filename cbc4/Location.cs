@@ -68,7 +68,7 @@ public class LocRegOffset: Loc {
 	
 	public override string ToString() {
 		if (Offset == 0)
-			return string.Format("[r{0}]", Reg);
+            return string.Format("[r{0}]", RegisterName(Reg));
 		// should check that the offset is in range!
 		return string.Format("[{0},#{1}]", RegisterName(Reg), Offset);
 	}
