@@ -132,11 +132,10 @@ namespace BackEnd
                     notImplemented(n, "GenExpression");
                     break;
 		        case NodeType.NewArray:
-                    // DONE ; NEEDS CHECKING
-                    result = 0;
-                    int length = ((AST_leaf)n[1]).Ival;
                     // FIX ME ; array may be an array of structs of arrays => size of each element not always 4
                     // calculate heap space needed (4 bytes for length of array, and 'size' bytes for each element)
+
+                    int length = ((AST_leaf)n[1]).Ival;
                     int size = 4;
                     int space = (length * size) + 4;
                     int reg = getReg();
@@ -148,6 +147,7 @@ namespace BackEnd
                     mem = new LocRegOffset(0, size, MemType.Byte);
                     Asm.Append("str", Loc.RegisterName(reg), mem);
                     freeReg(reg);
+                    result = 0;
 			        break;
 		        default:
 			        throw new Exception("Unexpected tag: " + n.Tag.ToString());
@@ -309,10 +309,10 @@ namespace BackEnd
                         int regw = GenExpression(n[1][0]);
                         Asm.Append("mov", "r0", Loc.RegisterName(regw));
                         // print integer
-                        if (true)           // FIX ME: Expression is an integer
+                        if (true)           // FIX ME: Detect when expression is an integer
                             Asm.Append("bl", "cb.WriteInt");
                         // print string
-                        else if (false)     // FIX ME: Expression is a string
+                        else if (false)     // FIX ME: Detect when expression is a string
                             Asm.Append("bl", "cb.WriteString");
                         else
                             throw new Exception("Invalid parameter to cbio.Write: " + n[1][0].Tag.ToString());
@@ -359,7 +359,8 @@ namespace BackEnd
                         Asm.Append("mov", Loc.RegisterName(tmpr), "r0");
                         // store result in local variable
                         variable = new LocRegOffset(fp, -40, MemType.Byte); // stack pointer always decreases by 40??
-                        Asm.Append("str", Loc.RegisterName(tmpr), variable); 
+                        Asm.Append("str", Loc.RegisterName(tmpr), variable);
+                        freeReg(tmpr);
                     }
 
 			        break;
@@ -380,12 +381,14 @@ namespace BackEnd
 			        int pp = GenExpression(n[0]);
                     string preg = Loc.RegisterName(pp);
                     Asm.Append("add", preg, preg, "#1");
+                    freeReg(pp);
 			        break;
 		        case NodeType.MinusMinus:
                     // DONE ; NEEDS CHECKING
 			        int mm = GenExpression(n[0]);
                     string mreg = Loc.RegisterName(mm);
                     Asm.Append("sub", mreg, mreg, "#1");
+                    freeReg(mm);
 			        break;
 		        case NodeType.If:
                     // DONE ; NEEDS CHECKING
@@ -467,6 +470,8 @@ namespace BackEnd
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
 			        Asm.Append("beq", TL);
 			        Asm.Append("b", FL);
+                    freeReg(lhs);
+                    freeReg(rhs);
                     break;
 		        case NodeType.NotEquals:
                     // DONE ; NEEDS CHECKING
@@ -476,6 +481,8 @@ namespace BackEnd
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
 			        Asm.Append("bne", TL);
 			        Asm.Append("b", FL);
+                    freeReg(lhs);
+                    freeReg(rhs);
                     break;
 		        case NodeType.LessThan:
                     // DONE ; NEEDS CHECKING
@@ -485,6 +492,8 @@ namespace BackEnd
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
                     Asm.Append("blt", TL);
                     Asm.Append("b", FL);
+                    freeReg(lhs);
+                    freeReg(rhs);
 			        break;
 		        case NodeType.GreaterThan:
                     // DONE ; NEEDS CHECKING
@@ -494,6 +503,8 @@ namespace BackEnd
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
                     Asm.Append("bgt", TL);
                     Asm.Append("b", FL);
+                    freeReg(lhs);
+                    freeReg(rhs);
 			        break;
 		        case NodeType.LessOrEqual:
                     // DONE ; NEEDS CHECKING
@@ -503,6 +514,8 @@ namespace BackEnd
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
                     Asm.Append("ble", TL);
                     Asm.Append("b", FL);
+                    freeReg(lhs);
+                    freeReg(rhs);
 			        break;
 		        case NodeType.GreaterOrEqual:
                     // DONE ; NEEDS CHECKING
@@ -512,6 +525,8 @@ namespace BackEnd
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
                     Asm.Append("bge", TL);
                     Asm.Append("b", FL);
+                    freeReg(lhs);
+                    freeReg(rhs);
 			        break;
 		        default:
 			        throw new Exception("Unexpected tag: " + n.Tag.ToString());
