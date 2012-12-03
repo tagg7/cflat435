@@ -132,11 +132,10 @@ namespace BackEnd
                     notImplemented(n, "GenExpression");
                     break;
 		        case NodeType.NewArray:
-                    // FIX ME ; array may be an array of structs of arrays => size of each element not always 4
+                    // DONE ; NEEDS CHECKING
                     // calculate heap space needed (4 bytes for length of array, and 'size' bytes for each element)
-
                     int length = ((AST_leaf)n[1]).Ival;
-                    int size = 4;
+                    int size = getTypeSize(n[0].Type);
                     int space = (length * size) + 4;
                     int reg = getReg();
                     Asm.Append("mov", "r0", "#" + space.ToString());
@@ -611,6 +610,24 @@ namespace BackEnd
 	    }
     
         /************************ Utility Methods **************************/
+
+        // returns the size of a type
+        private int getTypeSize(FrontEnd.CbType t)
+        {
+            //Console.WriteLine("gTS: Type is '{0}'", t);
+            if (t == FrontEnd.CbType.Int || t == FrontEnd.CbType.String || t is FrontEnd.CbArray)
+                return 4; // ints are words, and so are pointers to strings and arrays
+            else if (t is FrontEnd.CbStruct)
+            {
+                FrontEnd.CbStruct s = (FrontEnd.CbStruct) t;
+                int size = 0;
+                foreach (FrontEnd.CbField f in s.Fields.Values)
+                    size += getTypeSize(f.Type);
+                return size;
+            }
+            else
+                throw new Exception("getTypeSize: Unknown type: " + t);
+        }
 
 	    // generates a unique label name which cannot clash with
 	    // a method name or const name
