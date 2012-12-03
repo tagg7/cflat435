@@ -72,12 +72,12 @@ namespace BackEnd
                     // DONE
 			        result = getReg();
 			        string slab = createStringConstant(((AST_leaf)n).Sval);
-			        Asm.Append("ldr", Loc.RegisterName(result), slab);
+			        Asm.Append("ldr", Loc.RegisterName(result), "=" + slab);
 			        break;
 		        case NodeType.UnaryMinus:
                     // DONE ; NEEDS CHECKING
 			        result = lhs = GenExpression(n[0]);
-			        Asm.Append("mvn", Loc.RegisterName(lhs), Loc.RegisterName(lhs));
+			        Asm.Append("rsb", Loc.RegisterName(lhs), Loc.RegisterName(lhs), "#0");
 			        break;
 		        case NodeType.Sub:
                     // DONE ; NEEDS CHECKING
@@ -88,7 +88,7 @@ namespace BackEnd
 			        freeReg(rhs);
 			        break;
 		        case NodeType.Mul:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        lhs = GenExpression(n[0]);
 			        rhs = GenExpression(n[1]);
 			        result = getReg();
@@ -277,6 +277,7 @@ namespace BackEnd
                         Asm.Append("strb", Loc.RegisterName(reg), lhs);
                     else
                         throw new Exception("unsupported memory type " + lhs.Type.ToString());
+                    freeReg(reg);
 			        break;
 		        case NodeType.LocalDecl:
                     // DONE
@@ -395,7 +396,7 @@ namespace BackEnd
                     string lend = getNewLabel();
 
                     // no else statement
-                    if (n[2].Tag != NodeType.Empty)
+                    if (n[2].Tag == NodeType.Empty)
                     {
                         // if
                         GenConditional(n[0], tl, lend);
@@ -476,7 +477,7 @@ namespace BackEnd
                     GenConditional(n[1], TL, FL);
 			        break;
 		        case NodeType.Equals:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
                     // needs to compare strings?
 			        lhs = GenExpression(n[0]);
                     rhs = GenExpression(n[1]);
@@ -487,7 +488,7 @@ namespace BackEnd
                     freeReg(rhs);
                     break;
 		        case NodeType.NotEquals:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
                     // needs to compare strings?
 			        lhs = GenExpression(n[0]);
                     rhs = GenExpression(n[1]);
@@ -553,7 +554,6 @@ namespace BackEnd
 
 		    // 1. generate prolog code
 		    returnLabel = getNewLabel();
-            Asm.AppendLabel(((AST_leaf)n[1]).Sval);
             // push all registers in r4-r14 onto stack
             Asm.Append("stmfd", "sp!", "{r4-r12,lr}");
             // set up frame pointer
@@ -579,6 +579,8 @@ namespace BackEnd
             Asm.Append("mov", "sp", "fp");
             // reload saved registers and return flow
             Asm.Append("ldmfd", "sp!", "{r4-r12,pc}");
+            // go back to calling method
+            Asm.Append("b", "lr");
 	    }
 
 	    void GenConstDefn(AST n)
@@ -594,6 +596,17 @@ namespace BackEnd
 
         public void GenProgram(AST n)
         {
+            // main method prologue
+            Asm.AppendDirective(".global _start");
+            Asm.AppendDirective(".text");
+            Asm.AppendLabel("_start");
+            Asm.Append("mov", "r0", "#0");
+            Asm.Append("bl", "Main");
+            // main method epilogue
+            Asm.Append("mov", "r0", "#0x18");
+            Asm.Append("mov", "r1", "#0");
+            Asm.Append("swi", "0x123456");
+
 		    AST decls = n[2];
 		    for (int i = 0; i < decls.NumChildren;  i++)
             {
