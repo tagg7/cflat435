@@ -75,12 +75,12 @@ namespace BackEnd
 			        Asm.Append("ldr", Loc.RegisterName(result), "=" + slab);
 			        break;
 		        case NodeType.UnaryMinus:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        result = lhs = GenExpression(n[0]);
 			        Asm.Append("rsb", Loc.RegisterName(lhs), Loc.RegisterName(lhs), "#0");
 			        break;
 		        case NodeType.Sub:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        result = lhs = GenExpression(n[0]);
 			        rhs = GenExpression(n[1]);
 			        Asm.Append("sub", Loc.RegisterName(lhs), Loc.RegisterName(lhs),
@@ -118,7 +118,7 @@ namespace BackEnd
 			        freeReg(rhs);
 			        break;
 		        case NodeType.IntConst:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        result = getReg();
 			        int val = ((AST_leaf)n).Ival;
 			        if (255 >= val && val >= 0)
@@ -391,7 +391,7 @@ namespace BackEnd
                     freeReg(mm);
 			        break;
 		        case NodeType.If:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
                     string tl = getNewLabel();
                     string lend = getNewLabel();
 
@@ -459,7 +459,7 @@ namespace BackEnd
             switch (n.Tag)
             {
 		        case NodeType.And:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        string mida = getNewLabel();
                     // check if first condition is true
                     GenConditional(n[0], mida, FL);
@@ -468,7 +468,7 @@ namespace BackEnd
                     GenConditional(n[1], TL, FL);
 			        break;
 		        case NodeType.Or:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        string mido = getNewLabel();
                     // check if first condition is true; if true, go to end
                     GenConditional(n[0], TL, mido);
@@ -499,7 +499,7 @@ namespace BackEnd
                     freeReg(rhs);
                     break;
 		        case NodeType.LessThan:
-                    // DONE ; NEEDS CHECKING
+                    // DONENG
                     // needs to compare strings?
                     lhs = GenExpression(n[0]);
                     rhs = GenExpression(n[1]);
@@ -510,7 +510,7 @@ namespace BackEnd
                     freeReg(rhs);
 			        break;
 		        case NodeType.GreaterThan:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
                     // needs to compare strings?
                     lhs = GenExpression(n[0]);
                     rhs = GenExpression(n[1]);
@@ -521,7 +521,7 @@ namespace BackEnd
                     freeReg(rhs);
 			        break;
 		        case NodeType.LessOrEqual:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
                     // needs to compare strings?
                     lhs = GenExpression(n[0]);
                     rhs = GenExpression(n[1]);
@@ -532,7 +532,7 @@ namespace BackEnd
                     freeReg(rhs);
 			        break;
 		        case NodeType.GreaterOrEqual:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
                     // needs to compare strings?
                     lhs = GenExpression(n[0]);
                     rhs = GenExpression(n[1]);
