@@ -263,8 +263,8 @@ namespace BackEnd
 		    switch (n.Tag)
             {
 		        case NodeType.Assign:
-                    // FIX ME ; strings ??
-                    Loc lhs = GenVariable(n[0]);  // LHS
+                    // DONE ; NEEDS CHECKING
+                    Loc lhs = GenVariable(n[0]);    // LHS
 
                     // FIX ME ; should do something special here
                     if (n[1].Tag == NodeType.Call)
@@ -376,14 +376,14 @@ namespace BackEnd
                     Asm.Append("b", returnLabel);            
                     break;
 		        case NodeType.PlusPlus:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        int pp = GenExpression(n[0]);
                     string preg = Loc.RegisterName(pp);
                     Asm.Append("add", preg, preg, "#1");
                     freeReg(pp);
 			        break;
 		        case NodeType.MinusMinus:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        int mm = GenExpression(n[0]);
                     string mreg = Loc.RegisterName(mm);
                     Asm.Append("sub", mreg, mreg, "#1");
@@ -392,18 +392,32 @@ namespace BackEnd
 		        case NodeType.If:
                     // DONE ; NEEDS CHECKING
                     string tl = getNewLabel();
-                    string fl = getNewLabel();
                     string lend = getNewLabel();
 
-                    // if
-                    GenConditional(n[0], tl, fl);
-                    // then
-                    Asm.AppendLabel(tl);
-                    GenStatement(n[1]);
-                    Asm.Append("b", lend);
-                    // else
-                    Asm.AppendLabel(fl);
-                    GenStatement(n[2]);
+                    // no else statement
+                    if (n[2].Tag != NodeType.Empty)
+                    {
+                        // if
+                        GenConditional(n[0], tl, lend);
+                        // then
+                        Asm.AppendLabel(tl);
+                        GenStatement(n[1]);
+                        Asm.Append("b", lend);
+                    }
+                    // else statement
+                    else
+                    {
+                        string fl = getNewLabel();
+                        // if
+                        GenConditional(n[0], tl, fl);
+                        // then
+                        Asm.AppendLabel(tl);
+                        GenStatement(n[1]);
+                        Asm.Append("b", lend);
+                        // else
+                        Asm.AppendLabel(fl);
+                        GenStatement(n[2]);
+                    }
                     // end of if statement
                     Asm.AppendLabel(lend);
                     break;
