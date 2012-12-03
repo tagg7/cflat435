@@ -3,7 +3,7 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">x86</Platform>
-    <ProjectGuid>{00000000-0000-0000-0000-000000000000}</ProjectGuid>
+    <ProjectGuid>{1702EF57-2561-4C2D-B182-965BA3974456}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <NoStandardLibraries>false</NoStandardLibraries>
     <AssemblyName>ConsoleApplication</AssemblyName>
@@ -30,6 +30,9 @@
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
   </PropertyGroup>
+  <PropertyGroup>
+    <RootNamespace>cbc4</RootNamespace>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System" />
@@ -38,6 +41,28 @@
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ARMAssemblerCode.cs" />
+    <Compile Include="CbAST.cs" />
+    <Compile Include="cbc.cs" />
+    <Compile Include="CbPrVisitor.cs" />
+    <Compile Include="CbTcVisitor.cs" />
+    <Compile Include="CbType.cs" />
+    <Compile Include="CbVisitor.cs" />
+    <Compile Include="GenCode.cs" />
+    <Compile Include="Location.cs" />
+    <Compile Include="sampleprog.cs" />
+    <Compile Include="SymTab.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="CbLexer.lex" />
+    <None Include="CbParser.y" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="CbRuntime.s" />
+    <Content Include="start.s" />
+    <Content Include="TestCbRunTime.s" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.Targets" />
   <ProjectExtensions>
