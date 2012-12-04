@@ -266,13 +266,18 @@ namespace BackEnd
             {
 		        case NodeType.Assign:
                     // DONE ; NEEDS CHECKING
+                    int reg;
                     Loc lhs = GenVariable(n[0], LocalVars);    // LHS
 
-                    // FIX ME ; should do something special here
+                    // check for call
                     if (n[1].Tag == NodeType.Call)
-                        break;
+                    {
+                        GenStatement(n[1], LocalVars);         // RHS
+                        reg = 1;
+                    }
+                    else
+    			        reg = GenExpression(n[1], LocalVars);  // RHS
 
-			        int reg = GenExpression(n[1], LocalVars);  // RHS
                     if (lhs.Type == MemType.Word)
                         Asm.Append("str", Loc.RegisterName(reg), lhs);
                     else if (lhs.Type == MemType.Byte)
@@ -293,7 +298,6 @@ namespace BackEnd
                         pos++;
                     }
 
-                    // no instructions are generated for local declarations
 			        break;
 		        case NodeType.Block:
                     // DONE
@@ -578,8 +582,8 @@ namespace BackEnd
             // ^^ THIS HAS BEEN DONE, BUT IS NOT TESTED!!!
 		
             // reserve bytes for local variables in the function
-            //int allocb = ((AST_leaf)n[1]).Ival;
-            int allocb = 20;    // replace this with prior line after testing
+            int allocb = ((AST_leaf)n[1]).Ival;
+            //int allocb = 20;    // replace this with prior line after testing
             Asm.Append("sub", "sp", "sp", "#" + (allocb*4).ToString());
 
 		    // 2. translate the method body
