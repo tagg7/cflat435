@@ -34,7 +34,7 @@ namespace BackEnd
 
         /********************** AST Traversal Methods ************************/
 	
-	    int GenExpression(AST n)
+	    int GenExpression(AST n, string[] LocalVars)
         {
 		    int result = 0;
 		    int lhs, rhs;
@@ -44,26 +44,26 @@ namespace BackEnd
             {
 		        case NodeType.Ident:
                     // DONE ; NEEDS CHECKING
-                    mem = GenVariable(n);
+                    mem = GenVariable(n, LocalVars);
                     result = getReg();			
                     Asm.Append("ldr", Loc.RegisterName(result), mem);
 			        break;
 		        case NodeType.Dot:
                     // DONE ; NEEDS CHECKING
-                    mem = GenVariable(n);
+                    mem = GenVariable(n, LocalVars);
                     result = getReg();			
                     Asm.Append("ldr", Loc.RegisterName(result), mem);
 			        break;
 		        case NodeType.Index:
                     // DONE
-			        mem = GenVariable(n);
+			        mem = GenVariable(n, LocalVars);
 			        result = getReg();
 			        Asm.Append("ldr", Loc.RegisterName(result), mem);
 			        break;
 		        case NodeType.Add:
                     // DONE
-			        result = lhs = GenExpression(n[0]);
-			        rhs = GenExpression(n[1]);
+			        result = lhs = GenExpression(n[0], LocalVars);
+			        rhs = GenExpression(n[1], LocalVars);
 			        Asm.Append("add", Loc.RegisterName(lhs), Loc.RegisterName(lhs),
 						        Loc.RegisterName(rhs));
 			        freeReg(rhs);
@@ -76,21 +76,21 @@ namespace BackEnd
 			        break;
 		        case NodeType.UnaryMinus:
                     // DONE
-			        result = lhs = GenExpression(n[0]);
+			        result = lhs = GenExpression(n[0], LocalVars);
 			        Asm.Append("rsb", Loc.RegisterName(lhs), Loc.RegisterName(lhs), "#0");
 			        break;
 		        case NodeType.Sub:
                     // DONE
-			        result = lhs = GenExpression(n[0]);
-			        rhs = GenExpression(n[1]);
+			        result = lhs = GenExpression(n[0], LocalVars);
+			        rhs = GenExpression(n[1], LocalVars);
 			        Asm.Append("sub", Loc.RegisterName(lhs), Loc.RegisterName(lhs),
 						        Loc.RegisterName(rhs));
 			        freeReg(rhs);
 			        break;
 		        case NodeType.Mul:
                     // DONE
-			        lhs = GenExpression(n[0]);
-			        rhs = GenExpression(n[1]);
+			        lhs = GenExpression(n[0], LocalVars);
+			        rhs = GenExpression(n[1], LocalVars);
 			        result = getReg();
 			        Asm.Append("mulsl", Loc.RegisterName(result), Loc.RegisterName(lhs),
 						        Loc.RegisterName(rhs));
@@ -99,8 +99,8 @@ namespace BackEnd
 			        break;		
 		        case NodeType.Div:
                     // DONE ; NEEDS CHECKING
-			        result = lhs = GenExpression(n[0]);
-			        rhs = GenExpression(n[1]);
+			        result = lhs = GenExpression(n[0], LocalVars);
+			        rhs = GenExpression(n[1], LocalVars);
 			        Asm.Append("mov", "r0", Loc.RegisterName(lhs));
 			        Asm.Append("mov", "r1", Loc.RegisterName(rhs));
 			        Asm.Append("bl", "cb.DivMod");
@@ -109,8 +109,8 @@ namespace BackEnd
 			        break;
 		        case NodeType.Mod:
                     // DONE ; NEEDS CHECKING
-			        result = lhs = GenExpression(n[0]);
-			        rhs = GenExpression(n[1]);
+			        result = lhs = GenExpression(n[0], LocalVars);
+			        rhs = GenExpression(n[1], LocalVars);
 			        Asm.Append("mov", "r0", Loc.RegisterName(lhs));
 			        Asm.Append("mov", "r1", Loc.RegisterName(rhs));
 			        Asm.Append("bl", "cb.DivMod");
@@ -153,8 +153,8 @@ namespace BackEnd
 		    }
 		    return result;
 	    }
-	
-	    Loc GenVariable(AST n)
+
+        Loc GenVariable(AST n, string[] LocalVars)
         {
 		    Loc result = null;
 		    int lhs, offset = 0;
@@ -169,9 +169,11 @@ namespace BackEnd
 			        // search for existing strings?
 			        // string label = searchStringConstants(((AST_leaf)n).Sval);
 			
-			        // provided code
-			        offset = -40;  // FIX ME!
-			        mtyp = MemType.Word;  // FIX ME!
+			        // search for local variable
+                    int pos = Array.IndexOf(LocalVars, ((AST_leaf)n).Sval);
+                    // determine offset
+			        offset = -4 * (pos + 1);
+			        mtyp = MemType.Byte;  // FIX ME!
 			        result = new LocRegOffset(fp, offset, mtyp);
 			        break;
 		        case NodeType.Dot:
@@ -210,7 +212,7 @@ namespace BackEnd
                     // case where expression is Array.Length
                     else if (n[0].Type is FrontEnd.CbArray)
                     {
-                        lhs = GenExpression(n[0]);
+                        lhs = GenExpression(n[0], LocalVars);
                         offset = -4;
                         mtyp = MemType.Byte;
                     }
@@ -222,7 +224,7 @@ namespace BackEnd
                         // The right operand must be the name of a field in that struct.
                         // The code should set result to a LocRegOffset instance where
                         // the register comes from n[0] and the offset from n[1].
-                        lhs = GenExpression(n[0]);
+                        lhs = GenExpression(n[0], LocalVars);
                         string rhs = ((AST_leaf)n[1]).Sval;
                         offset = -40; // FIX ME!
                         mtyp = MemType.Word;  // FIX ME!
@@ -239,11 +241,11 @@ namespace BackEnd
 			        // The right operand must be an int expression to use as an index.
 			        // The code should set result to a LocRegIndex instance where
 			        // the register comes from n[0] and the offset from n[1].
-			        lhs = GenExpression(n[0]);	// is the lhs an expression?
+			        lhs = GenExpression(n[0], LocalVars);	// is the lhs an expression?
                     // check for struct reference
                     if (n[0].Tag == NodeType.Dot)
                     {
-                        result = GenVariable(n[0]);     // FIX ME: does not take array position into account!
+                        result = GenVariable(n[0], LocalVars);     // FIX ME: does not take array position into account!
                         mtyp = MemType.Byte;			// FIX ME: not always true
                     }
                     else
@@ -257,20 +259,20 @@ namespace BackEnd
 		    return result;
 	    }
 	
-	    void GenStatement(AST n)
+	    void GenStatement(AST n, string[] LocalVars)
         {
 		    Loc variable;
 		    switch (n.Tag)
             {
 		        case NodeType.Assign:
                     // DONE ; NEEDS CHECKING
-                    Loc lhs = GenVariable(n[0]);    // LHS
+                    Loc lhs = GenVariable(n[0], LocalVars);    // LHS
 
                     // FIX ME ; should do something special here
                     if (n[1].Tag == NodeType.Call)
                         break;
 
-			        int reg = GenExpression(n[1]);  // RHS
+			        int reg = GenExpression(n[1], LocalVars);  // RHS
                     if (lhs.Type == MemType.Word)
                         Asm.Append("str", Loc.RegisterName(reg), lhs);
                     else if (lhs.Type == MemType.Byte)
@@ -280,17 +282,27 @@ namespace BackEnd
                     freeReg(reg);
 			        break;
 		        case NodeType.LocalDecl:
-                    // DONE
+                    // DONE ; NEEDS CHECKING
+
+                    // get position of first empty slot in array
+                    int pos = Array.FindIndex(LocalVars, i => string.IsNullOrEmpty(i));
+                    // add newly declared variables to array
+                    for (int i = 0; i < n[1].NumChildren; i++)
+                    {
+                        LocalVars[pos] = ((AST_leaf)n[1][i]).Sval;
+                        pos++;
+                    }
+
                     // no instructions are generated for local declarations
 			        break;
 		        case NodeType.Block:
                     // DONE
 			        for (int i = 0;  i < n.NumChildren;  i++)
-				        GenStatement(n[i]);
+				        GenStatement(n[i], LocalVars);
 			        break;
 		        case NodeType.Read:
                     // DONE
-			        variable = GenVariable(n[1]);
+			        variable = GenVariable(n[1], LocalVars);
 			        Asm.Append("bl", "cb.ReadInt");
 			        Asm.Append("str", Loc.RegisterName(0), variable);
 			        break;
@@ -306,7 +318,7 @@ namespace BackEnd
                     // cbio.Write(x)
                     if (n[0].Tag == NodeType.Dot)
                     {
-                        int regw = GenExpression(n[1][0]);
+                        int regw = GenExpression(n[1][0], LocalVars);
                         Asm.Append("mov", "r0", Loc.RegisterName(regw));
                         // print integer
                         if (true)           // FIX ME: Detect when expression is an integer
@@ -330,7 +342,7 @@ namespace BackEnd
                         // push each parameter onto the stack
                         for (i = 0; i < numc; i++)
                         {
-                            temp = GenVariable(n[1][i]);    // Note: Should this be GenExpression ?!
+                            temp = GenVariable(n[1][i], LocalVars);    // Note: Should this be GenExpression ?!
                             variable = new LocRegOffset(sp, -4, MemType.Byte);
                             if (temp.Type == MemType.Byte)
                             {
@@ -369,7 +381,7 @@ namespace BackEnd
                     // load result into r1 if something is returned
                     if (n.NumChildren > 0)   // FIX ME: "n[0].Tag != CbType.Empty" does not work
                     {
-                        int ret = GenExpression(n[0]);
+                        int ret = GenExpression(n[0], LocalVars);
                         Asm.Append("ldr", Loc.RegisterName(1), Loc.RegisterName(ret));
                     }
 
@@ -378,14 +390,14 @@ namespace BackEnd
                     break;
 		        case NodeType.PlusPlus:
                     // DONE
-			        int pp = GenExpression(n[0]);
+			        int pp = GenExpression(n[0], LocalVars);
                     string preg = Loc.RegisterName(pp);
                     Asm.Append("add", preg, preg, "#1");
                     freeReg(pp);
 			        break;
 		        case NodeType.MinusMinus:
                     // DONE
-			        int mm = GenExpression(n[0]);
+			        int mm = GenExpression(n[0], LocalVars);
                     string mreg = Loc.RegisterName(mm);
                     Asm.Append("sub", mreg, mreg, "#1");
                     freeReg(mm);
@@ -399,10 +411,10 @@ namespace BackEnd
                     if (n[2].Tag == NodeType.Empty)
                     {
                         // if
-                        GenConditional(n[0], tl, lend);
+                        GenConditional(n[0], tl, lend, LocalVars);
                         // then
                         Asm.AppendLabel(tl);
-                        GenStatement(n[1]);
+                        GenStatement(n[1], LocalVars);
                         Asm.Append("b", lend);
                     }
                     // else statement
@@ -410,14 +422,14 @@ namespace BackEnd
                     {
                         string fl = getNewLabel();
                         // if
-                        GenConditional(n[0], tl, fl);
+                        GenConditional(n[0], tl, fl, LocalVars);
                         // then
                         Asm.AppendLabel(tl);
-                        GenStatement(n[1]);
+                        GenStatement(n[1], LocalVars);
                         Asm.Append("b", lend);
                         // else
                         Asm.AppendLabel(fl);
-                        GenStatement(n[2]);
+                        GenStatement(n[2], LocalVars);
                     }
                     // end of if statement
                     Asm.AppendLabel(lend);
@@ -430,10 +442,10 @@ namespace BackEnd
 
                     // while
                     Asm.AppendLabel(wcond);
-                    GenConditional(n[0], wstart, wend);
+                    GenConditional(n[0], wstart, wend, LocalVars);
                     // then do
                     Asm.AppendLabel(wstart);
-                    GenStatement(n[1]);
+                    GenStatement(n[1], LocalVars);
                     Asm.Append("b", wcond);
                     // end of loop
                     Asm.AppendLabel(wend);
@@ -453,7 +465,7 @@ namespace BackEnd
 
 	    // n is a subtree which generates a true-false test
 	    // TL and FL are labels to jump to if the test is true/false respectively
-	    void GenConditional(AST n, string TL, string FL)
+        void GenConditional(AST n, string TL, string FL, string[] LocalVars)
         {
             int lhs, rhs;
             switch (n.Tag)
@@ -462,25 +474,25 @@ namespace BackEnd
                     // DONE
 			        string mida = getNewLabel();
                     // check if first condition is true
-                    GenConditional(n[0], mida, FL);
+                    GenConditional(n[0], mida, FL, LocalVars);
                     // if first condition is true, check second condition
                     Asm.AppendLabel(mida);
-                    GenConditional(n[1], TL, FL);
+                    GenConditional(n[1], TL, FL, LocalVars);
 			        break;
 		        case NodeType.Or:
                     // DONE
 			        string mido = getNewLabel();
                     // check if first condition is true; if true, go to end
-                    GenConditional(n[0], TL, mido);
+                    GenConditional(n[0], TL, mido, LocalVars);
                     // if first condition is false, check second condition
                     Asm.AppendLabel(mido);
-                    GenConditional(n[1], TL, FL);
+                    GenConditional(n[1], TL, FL, LocalVars);
 			        break;
 		        case NodeType.Equals:
                     // DONE
                     // needs to compare strings?
-			        lhs = GenExpression(n[0]);
-                    rhs = GenExpression(n[1]);
+                    lhs = GenExpression(n[0], LocalVars);
+                    rhs = GenExpression(n[1], LocalVars);
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
 			        Asm.Append("beq", TL);
 			        Asm.Append("b", FL);
@@ -490,8 +502,8 @@ namespace BackEnd
 		        case NodeType.NotEquals:
                     // DONE
                     // needs to compare strings?
-			        lhs = GenExpression(n[0]);
-                    rhs = GenExpression(n[1]);
+                    lhs = GenExpression(n[0], LocalVars);
+                    rhs = GenExpression(n[1], LocalVars);
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
 			        Asm.Append("bne", TL);
 			        Asm.Append("b", FL);
@@ -501,8 +513,8 @@ namespace BackEnd
 		        case NodeType.LessThan:
                     // DONENG
                     // needs to compare strings?
-                    lhs = GenExpression(n[0]);
-                    rhs = GenExpression(n[1]);
+                    lhs = GenExpression(n[0], LocalVars);
+                    rhs = GenExpression(n[1], LocalVars);
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
                     Asm.Append("blt", TL);
                     Asm.Append("b", FL);
@@ -512,8 +524,8 @@ namespace BackEnd
 		        case NodeType.GreaterThan:
                     // DONE
                     // needs to compare strings?
-                    lhs = GenExpression(n[0]);
-                    rhs = GenExpression(n[1]);
+                    lhs = GenExpression(n[0], LocalVars);
+                    rhs = GenExpression(n[1], LocalVars);
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
                     Asm.Append("bgt", TL);
                     Asm.Append("b", FL);
@@ -523,8 +535,8 @@ namespace BackEnd
 		        case NodeType.LessOrEqual:
                     // DONE
                     // needs to compare strings?
-                    lhs = GenExpression(n[0]);
-                    rhs = GenExpression(n[1]);
+                    lhs = GenExpression(n[0], LocalVars);
+                    rhs = GenExpression(n[1], LocalVars);
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
                     Asm.Append("ble", TL);
                     Asm.Append("b", FL);
@@ -534,8 +546,8 @@ namespace BackEnd
 		        case NodeType.GreaterOrEqual:
                     // DONE
                     // needs to compare strings?
-                    lhs = GenExpression(n[0]);
-                    rhs = GenExpression(n[1]);
+                    lhs = GenExpression(n[0], LocalVars);
+                    rhs = GenExpression(n[1], LocalVars);
                     Asm.Append("cmp", Loc.RegisterName(lhs), Loc.RegisterName(rhs));
                     Asm.Append("bge", TL);
                     Asm.Append("b", FL);
@@ -566,11 +578,13 @@ namespace BackEnd
             // ^^ THIS HAS BEEN DONE, BUT IS NOT TESTED!!!
 		
             // reserve bytes for local variables in the function
-            int allocb = 4 * ((AST_leaf)n[1]).Ival;
-            Asm.Append("sub", "sp", "sp", "#" + allocb.ToString());
+            //int allocb = ((AST_leaf)n[1]).Ival;
+            int allocb = 20;    // replace this with prior line after testing
+            Asm.Append("sub", "sp", "sp", "#" + (allocb*4).ToString());
 
 		    // 2. translate the method body
-		    GenStatement(n[3]);
+            string[] LocalVars = new string[allocb];
+		    GenStatement(n[3], LocalVars);
 
 		    // 3. generate epilog code
 		    Asm.EndMethod();
