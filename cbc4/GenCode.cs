@@ -167,22 +167,29 @@ namespace BackEnd
 			        // In either case, the memory location is at an offset from
 			        // the frame pointer register.
 
-			        // search for existing strings?
-			        // string label = searchStringConstants(((AST_leaf)n).Sval);
-                    //if (n.Type is FrontEnd.CbStruct)
-                        //Console.WriteLine("identifier '{0}' is struct on line {1}",((AST_leaf)n).Sval, n.LineNumber);
-
                     // determine offset
                     offset = getOffset(LocalVariables, ((AST_leaf)n).Sval);
-                    // determine datatype
-                    string styp = typeOfLocalVariable(LocalVariables, ((AST_leaf)n).Sval);
-                    if (styp == "int")
-                        mtyp = MemType.Byte;
-                    else if (styp == "string")
-                        mtyp = MemType.Word;
-                    else  // FIX ME: Struct type
-                        mtyp = MemType.Word;
-			        result = new LocRegOffset(fp, offset, mtyp);
+                    // local variable
+                    if (offset != -1)
+                    {
+                        // determine datatype
+                        string styp = typeOfLocalVariable(LocalVariables, ((AST_leaf)n).Sval);
+                        if (styp == "int")
+                            mtyp = MemType.Byte;
+                        else if (styp == "string")
+                            mtyp = MemType.Word;
+                        else  // FIX ME: Struct type
+                            mtyp = MemType.Word;
+                        result = new LocRegOffset(fp, offset, mtyp);
+                    }
+                    // global variable
+                    else
+                    {
+                        int reg = getReg();
+                        Asm.Append("ldr", Loc.RegisterName(reg), "=" + ((AST_leaf)n).Sval);
+                        result = new LocRegOffset(reg, 0, MemType.Word);
+                    }
+
 			        break;
 		        case NodeType.Dot:
                     // FIX ME ; FAR FROM DONE ; MAYBE UBER WRONG
@@ -309,12 +316,12 @@ namespace BackEnd
                     if (((AST_leaf)n[0]).Sval == "int" || ((AST_leaf)n[0]).Sval == "string")
                     {
                         offset = getLastOffset(LocalVariables);
-                        Console.WriteLine("Last offset is {0}", offset);
 
                         // add newly declared variables to array
                         for (int i = 0; i < n[1].NumChildren; i++)
                         {
                             offset = offset + 4;
+                            Console.WriteLine("Offset for '{0}' is {1}", ((AST_leaf)n[1][i]).Sval, offset);
                             LocalVariables.Add(Tuple.Create(((AST_leaf)n[1][i]).Sval, ((AST_leaf)n[0]).Sval, offset));
                         }
                     }
