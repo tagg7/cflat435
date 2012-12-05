@@ -34,7 +34,7 @@ namespace BackEnd
 
         /********************** AST Traversal Methods ************************/
 
-        int GenExpression(AST n, IList<Tuple<string, string, int>> LocalVariables)
+        int GenExpression(AST n, IList<Tuple<string, FrontEnd.CbType, int, int>> LocalVariables)
         {
 		    int result = 0;
 		    int lhs, rhs;
@@ -154,7 +154,7 @@ namespace BackEnd
 		    return result;
 	    }
 
-        Loc GenVariable(AST n, IList<Tuple<string, string, int>> LocalVariables)
+        Loc GenVariable(AST n, IList<Tuple<string, FrontEnd.CbType, int, int>> LocalVariables)
         {
 		    Loc result = null;
 		    int lhs, offset = 0;
@@ -167,20 +167,22 @@ namespace BackEnd
 			        // In either case, the memory location is at an offset from
 			        // the frame pointer register.
 
+                    //if (n.Type is FrontEnd.CbStruct)
+                        //Console.WriteLine("identifier '{0}' is struct on line {1}",((AST_leaf)n).Sval, n.LineNumber);
+
                     // determine offset
                     offset = getOffset(LocalVariables, ((AST_leaf)n).Sval);
+                    Console.WriteLine("Offset: {0}", offset);
                     // local variable
                     if (offset != -1)
                     {
                         // determine datatype
-                        string styp = typeOfLocalVariable(LocalVariables, ((AST_leaf)n).Sval);
-                        if (styp == "int")
-                            mtyp = MemType.Byte;
-                        else if (styp == "string")
+                        FrontEnd.CbType styp = typeOfLocalVariable(LocalVariables, ((AST_leaf)n).Sval);
+                        if (styp == FrontEnd.CbType.Int || styp == FrontEnd.CbType.String)
                             mtyp = MemType.Word;
                         else  // FIX ME: Struct type
                             mtyp = MemType.Word;
-                        result = new LocRegOffset(fp, offset, mtyp);
+                        result = new LocRegOffset(fp, -offset, mtyp);
                     }
                     // global variable
                     else
@@ -282,7 +284,7 @@ namespace BackEnd
 		    return result;
 	    }
 
-        void GenStatement(AST n, IList<Tuple<string, string, int>> LocalVariables)
+        void GenStatement(AST n, IList<Tuple<string, FrontEnd.CbType, int, int>> LocalVariables)
         {
 		    Loc variable;
 		    switch (n.Tag)
@@ -313,22 +315,26 @@ namespace BackEnd
                     // DONE ; NEEDS CHECKING
 
                     int offset;
-                    if (((AST_leaf)n[0]).Sval == "int" || ((AST_leaf)n[0]).Sval == "string")
+                    int typeSize;
+                    if (n[0].Type == FrontEnd.CbType.Int || n[0].Type == FrontEnd.CbType.String || n[0].Type is FrontEnd.CbArray)
                     {
-                        offset = getLastOffset(LocalVariables);
-
-                        // add newly declared variables to array
-                        for (int i = 0; i < n[1].NumChildren; i++)
-                        {
-                            offset = offset + 4;
-                            Console.WriteLine("Offset for '{0}' is {1}", ((AST_leaf)n[1][i]).Sval, offset);
-                            LocalVariables.Add(Tuple.Create(((AST_leaf)n[1][i]).Sval, ((AST_leaf)n[0]).Sval, offset));
-                        }
+                        typeSize = 4;
                     }
-                    else
+                    else if (n[0].Type is FrontEnd.CbStruct)
                     {
-                        // STRUCT
-                        // DO SOMETHING
+                        typeSize = getTypeSize(n[0].Type);
+                    }
+                    else // unknown
+                    {
+                        throw new Exception(string.Format("Unknown local declaration type '{0}'", n[0].Type));
+                    }
+
+                    // add newly declared variables to array
+                    for (int i = 0; i < n[1].NumChildren; i++)
+                    {
+                        offset = getNextOffset(LocalVariables);
+                        Console.WriteLine("Offset for '{0}' is {1}, size is {2}", ((AST_leaf)n[1][i]).Sval, offset, typeSize);
+                        LocalVariables.Add(Tuple.Create(((AST_leaf)n[1][i]).Sval, n[0].Type, offset, typeSize));
                     }
 
 			        break;
@@ -358,10 +364,10 @@ namespace BackEnd
                         int regw = GenExpression(n[1][0], LocalVariables);
                         Asm.Append("mov", "r0", Loc.RegisterName(regw));
                         // print integer
-                        if (true)           // FIX ME: Detect when expression is an integer
+                        if (n[1][0].Type == FrontEnd.CbType.Int)
                             Asm.Append("bl", "cb.WriteInt");
                         // print string
-                        else if (false)     // FIX ME: Detect when expression is a string
+                        else if (n[1][0].Type == FrontEnd.CbType.String)
                             Asm.Append("bl", "cb.WriteString");
                         else
                             throw new Exception("Invalid parameter to cbio.Write: " + n[1][0].Tag.ToString());
@@ -487,7 +493,7 @@ namespace BackEnd
 
 	    // n is a subtree which generates a true-false test
 	    // TL and FL are labels to jump to if the test is true/false respectively
-        void GenConditional(AST n, string TL, string FL, IList<Tuple<string, string, int>> LocalVariables)
+        void GenConditional(AST n, string TL, string FL, IList<Tuple<string, FrontEnd.CbType, int, int>> LocalVariables)
         {
             int lhs, rhs;
             switch (n.Tag)
@@ -606,7 +612,7 @@ namespace BackEnd
             Asm.Append("sub", "sp", "sp", "#" + (allocb*4).ToString());
 
 		    // 2. translate the method body
-            IList<Tuple<string,string, int>> LocalVariables = new List<Tuple<string, string, int>>();
+            IList<Tuple<string, FrontEnd.CbType, int, int>> LocalVariables = new List<Tuple<string, FrontEnd.CbType, int, int>>();
 		    GenStatement(n[3], LocalVariables);
 
 		    // 3. generate epilog code
@@ -840,9 +846,9 @@ namespace BackEnd
 
         /******************** String Constant Handling **********************/
 
-        private string typeOfLocalVariable(IList<Tuple<string, string, int>> LocalVariables, string name)
+        private FrontEnd.CbType typeOfLocalVariable(IList<Tuple<string, FrontEnd.CbType, int, int>> LocalVariables, string name)
         {
-            foreach (Tuple<string, string, int> pair in LocalVariables)
+            foreach (Tuple<string, FrontEnd.CbType, int, int> pair in LocalVariables)
             {
                 if (pair.Item1 == name)
                     return pair.Item2;
@@ -851,26 +857,26 @@ namespace BackEnd
             return null;
         }
 
-        private int getOffset(IList<Tuple<string, string, int>> LocalVariables, string name)
+        private int getOffset(IList<Tuple<string, FrontEnd.CbType, int, int>> LocalVariables, string name)
         {
-            foreach (Tuple<string, string, int> pair in LocalVariables)
+            foreach (Tuple<string, FrontEnd.CbType, int, int> pair in LocalVariables)
             {
                 if (pair.Item1 == name)
                     return pair.Item3;
             }
 
-            return 0;
+            return -1;
         }
 
-        private int getLastOffset(IList<Tuple<string, string, int>> LocalVariables)
+        private int getNextOffset(IList<Tuple<string, FrontEnd.CbType, int, int>> LocalVariables)
         {
             int last = LocalVariables.Count;
             if (last == 0)
-                return 0;
+                return 4;
 
-            Tuple<string, string, int> temp = LocalVariables[last-1];
+            Tuple<string, FrontEnd.CbType, int, int> temp = LocalVariables[last-1];
 
-            return temp.Item3;
+            return temp.Item3 + temp.Item4;
         }
     }
 
