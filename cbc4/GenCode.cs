@@ -92,7 +92,7 @@ namespace BackEnd
 			        lhs = GenExpression(n[0], LocalVariables);
 			        rhs = GenExpression(n[1], LocalVariables);
 			        result = getReg();
-			        Asm.Append("mulsl", Loc.RegisterName(result), Loc.RegisterName(lhs),
+			        Asm.Append("mul", Loc.RegisterName(result), Loc.RegisterName(lhs),
 						        Loc.RegisterName(rhs));
 			        freeReg(lhs);
 			        freeReg(rhs);
@@ -397,11 +397,11 @@ namespace BackEnd
                     if (n.NumChildren > 0)   // FIX ME: "n[0].Tag != CbType.Empty" does not work
                     {
                         int ret = GenExpression(n[0], LocalVariables);
-                        Asm.Append("ldr", Loc.RegisterName(1), Loc.RegisterName(ret));
+                        Asm.Append("mov", Loc.RegisterName(1), Loc.RegisterName(ret));
                     }
 
                     // return statement is a transfer to the label held in 'returnLabel'
-                    Asm.Append("b", returnLabel);            
+                    Asm.Append("b", returnLabel);
                     break;
 		        case NodeType.PlusPlus:
                     // DONE
