@@ -8,7 +8,6 @@ using AST = FrontEnd.AST;
 using AST_leaf = FrontEnd.AST_leaf;
 using NodeType = FrontEnd.NodeType;
 
-
 namespace BackEnd
 {
     public class GenCode
@@ -20,6 +19,7 @@ namespace BackEnd
 	    private int nextStringNum;
 	    private string returnLabel;
 	    private IList<Tuple<string,string>> stringConsts;
+        private Dictionary<string, Dictionary<string, Tuple<int,int>>> structs = new Dictionary<string,Dictionary<string,Tuple<int,int>>>();
 
 	    // Constructor
 	    public GenCode()
@@ -158,6 +158,7 @@ namespace BackEnd
         {
 		    Loc result = null;
 		    int lhs, offset = 0;
+            int pos;
 		    MemType mtyp;
 		    switch (n.Tag)
             {
@@ -168,9 +169,11 @@ namespace BackEnd
 
 			        // search for existing strings?
 			        // string label = searchStringConstants(((AST_leaf)n).Sval);
-			
+                    //if (n.Type is FrontEnd.CbStruct)
+                        //Console.WriteLine("identifier '{0}' is struct on line {1}",((AST_leaf)n).Sval, n.LineNumber);
+			        
 			        // search for local variable
-                    int pos = indexOfLocalVariable(LocalVariables, ((AST_leaf)n).Sval);
+                    pos = indexOfLocalVariable(LocalVariables, ((AST_leaf)n).Sval);
                     // determine offset
 			        offset = -4 * (pos+1);
                     // determine datatype
@@ -231,7 +234,15 @@ namespace BackEnd
                         // The right operand must be the name of a field in that struct.
                         // The code should set result to a LocRegOffset instance where
                         // the register comes from n[0] and the offset from n[1].
-                        lhs = GenExpression(n[0], LocalVariables);
+                        //lhs = GenExpression(n[0], LocalVars);
+
+                        Loc structLoc = GenVariable(n[0], LocalVariables);
+                        
+                        // search for local variable
+                        pos = indexOfLocalVariable(LocalVariables, ((AST_leaf)n[0]).Sval);
+                        lhs = 9001; // FIX ME
+                        //lhs = GenExpression(n[0], LocalVariables);
+
                         string rhs = ((AST_leaf)n[1]).Sval;
                         offset = -40; // FIX ME!
                         mtyp = MemType.Word;  // FIX ME!
@@ -339,40 +350,25 @@ namespace BackEnd
                     // regular method call
                     else
                     {
-                        int i, ilab;
-                        string slab;
-                        int numc = n[1].NumChildren;
-                        Loc temp;
                         int tmpr = getReg();
 
-                        // push each parameter onto the stack
-                        for (i = 0; i < numc; i++)
+                        AST param = n[1];
+                        int totalSize = 0;
+                        for (int i = 0; i < param.NumChildren; i++)
                         {
-                            temp = GenVariable(n[1][i], LocalVariables);    // Note: Should this be GenExpression ?!
-                            variable = new LocRegOffset(sp, -4, MemType.Byte);
-                            if (temp.Type == MemType.Byte)
-                            {
-                                ilab = ((AST_leaf)n[1][i]).Ival;
-                                Asm.Append("ldr", Loc.RegisterName(tmpr), "=" + ilab);
-                            }
-                            else if (temp.Type == MemType.Word)
-                            {
-                                slab = createStringConstant(((AST_leaf)n[1][i]).Sval);
-                                Asm.Append("ldr", Loc.RegisterName(tmpr), slab);
-                                variable = new LocRegOffset(sp, -4, MemType.Word);
-                            }
-                            else
-                            {
-                                throw new Exception("Invalid parameter: " + n[1][i].Tag.ToString());
-                            }
-                            // push onto stack and increase pointer by 4 bytes
-                            Asm.Append("str", Loc.RegisterName(tmpr), variable + "!");
+                            int size = getTypeSize(param[i].Type);
+                            totalSize += size;
+
+                            int register = GenExpression(param[i], LocalVariables);
+                            variable = new LocRegOffset(sp, -size, MemType.Word);
+                            Asm.Append("str", Loc.RegisterName(register), variable + "!");
                         }
+                        Console.WriteLine("Calculated {0} bytes required for parameters of method '{1}'", totalSize, ((AST_leaf)n[0]).Sval);
+
                         // go to method
                         Asm.Append("bl", ((AST_leaf)n[0]).Sval);
-                        // pop bytes off stack (equal to 4 * # of parameters)
-                        i = numc * 4;
-                        Asm.Append("add", "sp", "sp", "#" + i.ToString());
+                        // pop bytes off stack
+                        Asm.Append("add", "sp", "sp", "#" + totalSize.ToString());
                         // move result out of scratch register
                         Asm.Append("mov", Loc.RegisterName(tmpr), "r0");
                         // store result in local variable
@@ -576,16 +572,17 @@ namespace BackEnd
             Asm.Append("stmfd", "sp!", "{r4-r12,lr}");
             // set up frame pointer
             Asm.Append("mov", "fp", "sp");
-		
+
 		    // NOTE: Need to add code in CbTcVistitor.cs to determine number of local variables;
 		    // FROM NIGEL... store the sizes as annotations on the tree nodes ... and the leaf 
 		    // node class for an identifier used as a variable's name or a struct type name 
 		    // does have an unused int field which can be used for that purpose.
             // ^^ THIS HAS BEEN DONE, BUT IS NOT TESTED!!!
-		
+
             // reserve bytes for local variables in the function
             int allocb = ((AST_leaf)n[1]).Ival;
-            //int allocb = 20;    // replace this with prior line after testing
+            Console.WriteLine("Allocating {0} bytes for local variables of method '{1}'", allocb*4, ((AST_leaf)n[1]).Sval);
+
             Asm.Append("sub", "sp", "sp", "#" + (allocb*4).ToString());
 
 		    // 2. translate the method body
@@ -627,7 +624,59 @@ namespace BackEnd
             Asm.Append("mov", "r1", "#0");
             Asm.Append("swi", "0x123456");
 
-		    AST decls = n[2];
+            AST decls = n[2];
+            for (int i = 0; i < decls.NumChildren; i++)
+            {
+                AST decl = decls[i];
+                if (decl.Tag == NodeType.Struct)
+                    structs.Add(((AST_leaf)decl[0]).Sval, new Dictionary<string, Tuple<int,int>>());
+            }
+            for (int i = 0; i < decls.NumChildren; i++)
+            {
+                AST decl = decls[i];
+                if (decl.Tag == NodeType.Struct)
+                {
+                    AST fields = decl[1];
+                    string name = ((AST_leaf)decl[0]).Sval;
+                    Dictionary<string, Tuple<int,int>> s;
+                    if (structs.TryGetValue(name, out s))
+                    {
+                        int pos = 0;
+                        for (int j = 0; j < fields.NumChildren; j++)
+                        {
+                            AST fieldDecl = fields[j];
+                            AST idList = fieldDecl[1];
+                            int size = getTypeSize(fieldDecl[0].Type);
+                            for (int k = 0; k < idList.NumChildren; k++)
+                            {
+                                //Console.WriteLine("Structure '{0}' has field '{1}' of size '{2}' at position '{3}'", name, ((AST_leaf)idList[k]).Sval, size, pos);
+                                Tuple<int, int> t = new Tuple<int, int>(pos, size);
+                                s.Add(((AST_leaf)idList[k]).Sval, t);
+                                pos += size;
+                            }
+                        }
+                    }
+                }
+            }
+
+            /*
+            // how to access struct properties
+            foreach (string s in structs.Keys)
+            {
+                Dictionary<string, Tuple<int,int>> s0;
+                if (structs.TryGetValue(s, out s0))
+                {
+                    foreach (string f in s0.Keys)
+                    {
+                        Tuple<int, int> t;
+                        if (s0.TryGetValue(f, out t))
+                        {
+                            Console.WriteLine("Structure '{0}' has field '{1}' of size '{3}' at position '{2}'", s, f, t.Item1, t.Item2);
+                        }
+                    }
+                }
+            } */
+
 		    for (int i = 0; i < decls.NumChildren;  i++)
             {
 			    AST decl = decls[i];
@@ -640,7 +689,7 @@ namespace BackEnd
 				        GenConstDefn(decl);
 				        break;
 			        case NodeType.Struct:
-				        // no code to generate
+                        // already handled above
 				        break;
 			        default:
 				        throw new Exception("Unexpected tag: " + n.Tag.ToString());
