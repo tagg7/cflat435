@@ -98,7 +98,7 @@ namespace BackEnd
 			        freeReg(rhs);
 			        break;		
 		        case NodeType.Div:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        result = lhs = GenExpression(n[0], LocalVariables);
 			        rhs = GenExpression(n[1], LocalVariables);
 			        Asm.Append("mov", "r0", Loc.RegisterName(lhs));
@@ -108,7 +108,7 @@ namespace BackEnd
 			        freeReg(rhs);
 			        break;
 		        case NodeType.Mod:
-                    // DONE ; NEEDS CHECKING
+                    // DONE
 			        result = lhs = GenExpression(n[0], LocalVariables);
 			        rhs = GenExpression(n[1], LocalVariables);
 			        Asm.Append("mov", "r0", Loc.RegisterName(lhs));
@@ -143,7 +143,7 @@ namespace BackEnd
                     Asm.Append("bl", "cb.Malloc");
                     Asm.Append("mov", Loc.RegisterName(reg), "#" + length.ToString());
                     // store array size in first word, and advance pointer to first element
-                    mem = new LocRegOffset(0, size, MemType.Byte);
+                    mem = new LocRegOffset(0, size, MemType.Word);
                     Asm.Append("str", Loc.RegisterName(reg), mem);
                     freeReg(reg);
                     result = 0;
@@ -158,7 +158,6 @@ namespace BackEnd
         {
 		    Loc result = null;
 		    int lhs, offset = 0;
-            int pos;
 		    MemType mtyp;
 		    switch (n.Tag)
             {
@@ -167,24 +166,14 @@ namespace BackEnd
 			        // In either case, the memory location is at an offset from
 			        // the frame pointer register.
 
-                    //if (n.Type is FrontEnd.CbStruct)
-                        //Console.WriteLine("identifier '{0}' is struct on line {1}",((AST_leaf)n).Sval, n.LineNumber);
-
                     // determine offset
                     offset = getOffset(LocalVariables, ((AST_leaf)n).Sval);
                     Console.WriteLine("Offset: {0}", offset);
                     // local variable
                     if (offset != -1)
                     {
-                        // determine datatype
-                        FrontEnd.CbType styp = typeOfLocalVariable(LocalVariables, ((AST_leaf)n).Sval);
-                        if (styp == FrontEnd.CbType.Int || styp == FrontEnd.CbType.String)
-                            mtyp = MemType.Word;
-                        else  // FIX ME: Struct type
-                            mtyp = MemType.Word;
-                        result = new LocRegOffset(fp, -offset, mtyp);
+                        result = new LocRegOffset(fp, -offset, MemType.Word);
                     }
-                    // global variable
                     else
                     {
                         int reg = getReg();
@@ -194,46 +183,26 @@ namespace BackEnd
 
 			        break;
 		        case NodeType.Dot:
-                    // FIX ME ; FAR FROM DONE ; MAYBE UBER WRONG
+                    // FIX ME
 
                     // case where expression is String.Length
                     if (n[0].Type == FrontEnd.CbType.String)
                     {
                         lhs = getReg();
-                        // load string into r0
-                        // find string
-                        // FIX ME ; only works for string variables and string constants, not string fields in structures or arrays of strings or combinations thereof
-                        string label = null;
-                        if (n[0].NumChildren == 0)
-                        {
-                            string val = ((AST_leaf)n[0]).Sval;
-                            if (n[0].Tag == NodeType.Ident)
-                            {
-                                label = searchStringConstants(val);
-                                if (label == null)
-                                {
-                                    throw new Exception("String variable memory not allocated: " + val);
-                                }
-                            } else if (n[0].Tag == NodeType.StringConst)
-                            {
-                                label = searchStringConstants(val);
-                                if (label == null)
-                                    label = createStringConstant(val);
-                            }
-                        }
-                        Asm.Append("ldr", "r0", label);
+                        int reg = GenExpression(n[0], LocalVariables);
+                        Asm.Append("ldr", "r0", reg);
                         Asm.Append("bl", "cb.StrLen");
                         offset = 0;
-                        mtyp = MemType.Byte;
+                        mtyp = MemType.Word;
                     }
                     // case where expression is Array.Length
                     else if (n[0].Type is FrontEnd.CbArray)
                     {
                         lhs = GenExpression(n[0], LocalVariables);
                         offset = -4;
-                        mtyp = MemType.Byte;
+                        mtyp = MemType.Word;
                     }
-                    // case where expression is struct.field
+                    // case where expression is Struct.Field
                     else if (n[0].Type is FrontEnd.CbStruct)
                     {
                         // FIX ME
@@ -241,18 +210,28 @@ namespace BackEnd
                         // The right operand must be the name of a field in that struct.
                         // The code should set result to a LocRegOffset instance where
                         // the register comes from n[0] and the offset from n[1].
-                        //lhs = GenExpression(n[0], LocalVars);
 
-                        Loc structLoc = GenVariable(n[0], LocalVariables);
+                        // get memory location of struct 
+                        lhs = GenExpression(n[0], LocalVariables);
                         
-                        // search for local variable
-                        pos = getOffset(LocalVariables, ((AST_leaf)n[0]).Sval);
-                        lhs = 9001; // FIX ME
-                        //lhs = GenExpression(n[0], LocalVariables);
+                        string structName = getStructName(n[0].Type);
+                        string fieldName = ((AST_leaf)n[1]).Sval;
 
-                        string rhs = ((AST_leaf)n[1]).Sval;
-                        offset = -40; // FIX ME!
-                        mtyp = MemType.Word;  // FIX ME!
+                        offset = -1;
+                        Dictionary<string, Tuple<int, int>> fields;
+                        if (structs.TryGetValue(structName, out fields))
+                        {
+                            Tuple<int, int> properties;
+                            if (fields.TryGetValue(fieldName, out properties))
+                            {
+                                offset = properties.Item1;
+                            }
+                        }
+                        if (offset == -1)
+                            throw new Exception(string.Format("Struct {0} does not contain field '{1}'; Line {2}", structName, fieldName, n.LineNumber));
+
+                        offset = -offset;
+                        mtyp = MemType.Word;
                     }
                     else
                     {
@@ -266,19 +245,26 @@ namespace BackEnd
 			        // The right operand must be an int expression to use as an index.
 			        // The code should set result to a LocRegIndex instance where
 			        // the register comes from n[0] and the offset from n[1].
-			        lhs = GenExpression(n[0], LocalVariables);	// is the lhs an expression?
-                    // check for struct reference
+			        lhs = GenExpression(n[0], LocalVariables);
+
+                    // get the offset
+                    offset = GenExpression(n[1], LocalVariables);
+                    Asm.Append("add", offset, "#1");
+                    // struct
                     if (n[0].Tag == NodeType.Dot)
                     {
-                        result = GenVariable(n[0], LocalVariables);     // FIX ME: does not take array position into account!
-                        mtyp = MemType.Byte;			// FIX ME: not always true
+                        int typeSize = getTypeSize(n[0].Type);      // FIX ME: does this work?
+                        Asm.Append("ldr", "r1", "=" + typeSize.ToString());
+                        Asm.Append("rsb", "r1", "r1", "#0");
+                        Asm.Append("mul", offset, offset, "r1");
                     }
+                    // regular array
                     else
-                    {
-                        offset = ((AST_leaf)n[1]).Ival * 4;
-                        mtyp = MemType.Byte;			// FIX ME: not always true
-                        result = new LocRegIndex(lhs, offset, mtyp);
-                    }
+                        Asm.Append("mul", offset, offset, "#-4");
+
+                    mtyp = MemType.Byte;
+                    result = new LocRegIndex(lhs, offset, mtyp);
+
 			        break;
 		    }
 		    return result;
@@ -303,10 +289,8 @@ namespace BackEnd
                     else
     			        reg = GenExpression(n[1], LocalVariables);  // RHS
 
-                    if (lhs.Type == MemType.Word)
+                    if (lhs.Type == MemType.Word || lhs.Type == MemType.Byte)
                         Asm.Append("str", Loc.RegisterName(reg), lhs);
-                    else if (lhs.Type == MemType.Byte)
-                        Asm.Append("strb", Loc.RegisterName(reg), lhs);
                     else
                         throw new Exception("unsupported memory type " + lhs.Type.ToString());
                     freeReg(reg);
@@ -333,7 +317,6 @@ namespace BackEnd
                     for (int i = 0; i < n[1].NumChildren; i++)
                     {
                         offset = getNextOffset(LocalVariables);
-                        Console.WriteLine("Offset for '{0}' is {1}, size is {2}", ((AST_leaf)n[1][i]).Sval, offset, typeSize);
                         LocalVariables.Add(Tuple.Create(((AST_leaf)n[1][i]).Sval, n[0].Type, offset, typeSize));
                     }
 
@@ -398,8 +381,9 @@ namespace BackEnd
                         // move result out of scratch register
                         Asm.Append("mov", Loc.RegisterName(tmpr), "r0");
                         // store result in local variable
-                        variable = new LocRegOffset(fp, -40, MemType.Byte); // stack pointer always decreases by 40??
+                        variable = new LocRegOffset(fp, -totalSize, MemType.Byte);
                         Asm.Append("str", Loc.RegisterName(tmpr), variable);
+                        Console.WriteLine("Method call register r{0}", tmpr);
                         freeReg(tmpr);
                     }
 
@@ -732,6 +716,17 @@ namespace BackEnd
 	    }
     
         /************************ Utility Methods **************************/
+
+        private string getStructName(FrontEnd.CbType t)
+        {
+            string name = null;
+            if (t is FrontEnd.CbStruct)
+            {
+                FrontEnd.CbStruct s = (FrontEnd.CbStruct)t;
+                name = s.Name;
+            }
+            return name;
+        }
 
         // returns the size of a type
         private int getTypeSize(FrontEnd.CbType t)
