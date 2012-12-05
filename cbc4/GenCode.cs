@@ -190,7 +190,7 @@ namespace BackEnd
                     {
                         lhs = getReg();
                         int reg = GenExpression(n[0], LocalVariables);
-                        Asm.Append("ldr", "r0", reg);
+                        Asm.Append("mov", "r0", Loc.RegisterName(reg));
                         Asm.Append("bl", "cb.StrLen");
                         offset = 0;
                         mtyp = MemType.Word;
@@ -249,18 +249,21 @@ namespace BackEnd
 
                     // get the offset
                     offset = GenExpression(n[1], LocalVariables);
-                    Asm.Append("add", offset, "#1");
+                    Asm.Append("add", Loc.RegisterName(offset), "#1");
                     // struct
                     if (n[0].Tag == NodeType.Dot)
                     {
                         int typeSize = getTypeSize(n[0].Type);      // FIX ME: does this work?
                         Asm.Append("ldr", "r1", "=" + typeSize.ToString());
                         Asm.Append("rsb", "r1", "r1", "#0");
-                        Asm.Append("mul", offset, offset, "r1");
+                        Asm.Append("mul", Loc.RegisterName(offset), Loc.RegisterName(offset), "r1");
                     }
                     // regular array
                     else
-                        Asm.Append("mul", offset, offset, "#-4");
+                    {
+                        Asm.Append("ldr", "r2", "=-4");
+                        Asm.Append("mul", Loc.RegisterName(offset), Loc.RegisterName(offset), "r1");
+                    }
 
                     mtyp = MemType.Byte;
                     result = new LocRegIndex(lhs, offset, mtyp);
