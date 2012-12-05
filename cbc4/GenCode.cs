@@ -607,7 +607,7 @@ namespace BackEnd
             // reload saved registers and return flow
             Asm.Append("ldmfd", "sp!", "{r4-r12,pc}");
             // go back to calling method
-            Asm.Append("b", "lr");
+            Asm.Append("mov", "pc", "lr");
 	    }
 
 	    void GenConstDefn(AST n)
